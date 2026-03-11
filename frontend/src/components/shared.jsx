@@ -1,7 +1,7 @@
 // src/components/shared.jsx
 import { catColor, catIcon, formatDate, getCategories } from '../utils'
 import { Link } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 // ── Category Tag ─────────────────────────────────────────────
 export function CatTag({ category, size = 'sm' }) {

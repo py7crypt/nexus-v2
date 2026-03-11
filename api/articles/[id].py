@@ -84,12 +84,11 @@ class handler(BaseHTTPRequestHandler):
         article_id = _get_id(self.path)
         a = _load_article(article_id)
         if not a:
-            return self._json(404, {
-                "success": False,
-                "error": "Article not found",
-                "received_path": self.path,
-                "extracted_id": article_id,
-            })
+            return self._json(404, {"success": False, "error": "Article not found"})
+        # Block draft articles from public access unless admin token provided
+        is_admin = verify_token(self.headers.get("Authorization", ""))
+        if a.get("status") != "published" and not is_admin:
+            return self._json(404, {"success": False, "error": "Article not found"})
         a["views"] = a.get("views", 0) + 1
         _run(kv_set(f"article:{a['id']}", a))
         self._json(200, {"success": True, "article": a})
@@ -100,7 +99,7 @@ class handler(BaseHTTPRequestHandler):
         article_id = _get_id(self.path)
         a = _load_article(article_id)
         if not a:
-            return self._json(404, {"success": False, "error": "Article not found", "received_path": self.path})
+            return self._json(404, {"success": False, "error": "Article not found"})
         n = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(n)) if n else {}
         for k in ARTICLE_FIELDS:
