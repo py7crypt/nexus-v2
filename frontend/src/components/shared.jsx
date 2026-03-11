@@ -238,10 +238,28 @@ const WX_DESC = {
 }
 
 async function _getCoordsByIP() {
-  // ipwho.is — free, CORS-enabled, no API key
-  const d = await fetch('https://ipwho.is/').then(r => r.json())
-  if (!d.success) throw new Error('IP lookup failed')
-  return { lat: d.latitude, lon: d.longitude, city: d.city || d.region || '' }
+  // Try multiple CORS-friendly IP geo APIs in order
+  const apis = [
+    async () => {
+      const d = await fetch('https://ipapi.co/json/').then(r => r.json())
+      if (!d.latitude) throw new Error('failed')
+      return { lat: d.latitude, lon: d.longitude, city: d.city || d.region || '' }
+    },
+    async () => {
+      const d = await fetch('https://freeipapi.com/api/json').then(r => r.json())
+      if (!d.latitude) throw new Error('failed')
+      return { lat: d.latitude, lon: d.longitude, city: d.cityName || '' }
+    },
+    async () => {
+      const d = await fetch('https://ip.seeip.org/geoip').then(r => r.json())
+      if (!d.latitude) throw new Error('failed')
+      return { lat: d.latitude, lon: d.longitude, city: d.city || '' }
+    },
+  ]
+  for (const api of apis) {
+    try { return await api() } catch { /* try next */ }
+  }
+  throw new Error('All IP geo APIs failed')
 }
 
 async function _fetchWeather(lat, lon) {

@@ -8,8 +8,6 @@ import { formatDate, catColor } from '../utils'
 
 export default function ArticlePage() {
   const { id } = useParams()
-  const [social, setSocial] = useState({})
-
   const { data, isLoading, error } = useQuery({
     queryKey: ['article', id],
     queryFn:  () => fetchArticle(id),
@@ -24,18 +22,6 @@ export default function ArticlePage() {
     queryFn:  () => fetchArticles({ category: article?.category, limit: 4 }),
     enabled:  !!article?.category,
   })
-
-  useEffect(() => {
-    fetch('/api/social')
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          // New format: links array; old format: social object
-          setSocial(d.links || d.social || [])
-        }
-      })
-      .catch(() => {})
-  }, [])
 
   if (isLoading) return (
     <div className="flex justify-center items-center py-32"><Spinner size="lg"/></div>
@@ -55,9 +41,30 @@ export default function ArticlePage() {
   const articleUrl   = encodeURIComponent(window.location.href)
   const articleTitle = encodeURIComponent(a.title)
 
-  const shareLinks = Array.isArray(social)
-    ? social.map(l => ({ icon: l.icon || '', label: l.label, url: l.url }))
-    : []
+  const rawUrl   = window.location.href
+  const encUrl   = encodeURIComponent(rawUrl)
+  const encTitle = encodeURIComponent(a.title)
+
+  // Fixed share buttons — never affected by admin social media settings
+  const shareLinks = [
+    { label: 'Twitter',   icon: 'https://cdn.simpleicons.org/x/000000',         shareUrl: `https://twitter.com/intent/tweet?text=${encTitle}&url=${encUrl}` },
+    { label: 'Facebook',  icon: 'https://cdn.simpleicons.org/facebook/1877F2',  shareUrl: `https://www.facebook.com/sharer/sharer.php?u=${encUrl}` },
+    { label: 'LinkedIn',  icon: 'https://cdn.simpleicons.org/linkedin/0A66C2',  shareUrl: `https://www.linkedin.com/sharing/share-offsite/?url=${encUrl}` },
+    { label: 'WhatsApp',  icon: 'https://cdn.simpleicons.org/whatsapp/25D366',  shareUrl: `https://wa.me/?text=${encTitle}%20${encUrl}` },
+    { label: 'Telegram',  icon: 'https://cdn.simpleicons.org/telegram/26A5E4',  shareUrl: `https://t.me/share/url?url=${encUrl}&text=${encTitle}` },
+    { label: 'Reddit',    icon: 'https://cdn.simpleicons.org/reddit/FF4500',    shareUrl: `https://www.reddit.com/submit?url=${encUrl}&title=${encTitle}` },
+  ]
+
+  const [copied, setCopied] = useState(false)
+  const handleCopy = () => {
+    navigator.clipboard.writeText(rawUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  const handleNativeShare = () => {
+    navigator.share({ title: a.title, url: rawUrl }).catch(() => {})
+  }
 
   return (
     <div className="max-w-[1280px] mx-auto px-5 py-8">
@@ -156,24 +163,45 @@ export default function ArticlePage() {
             </div>
           )}
 
-          {/* Share — uses social URLs from /api/social */}
+          {/* Share */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
-            <h3 className="text-xs font-bold uppercase tracking-wider border-b-2 border-blue-500 pb-2 mb-4">Share</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {shareLinks.map(({ icon, label, url }) => (
-                <button key={label}
-                  onClick={() => window.open(url, '_blank')}
-                  className="flex flex-col items-center py-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-blue-600 hover:text-white transition-colors text-xs font-bold gap-1.5 group">
-                  <div className="w-6 h-6 flex items-center justify-center">
-                    {icon && icon.startsWith('http')
-                      ? <img src={icon} alt={label} className="w-5 h-5 object-contain group-hover:brightness-0 group-hover:invert transition-all"/>
-                      : <span className="text-base">{icon}</span>
-                    }
-                  </div>
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider border-b-2 border-blue-500 pb-2 mb-4">Share This Article</h3>
+
+            {/* Social platform buttons */}
+            {shareLinks.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {shareLinks.map(({ icon, label, shareUrl }) => (
+                  <button key={label}
+                    onClick={() => window.open(shareUrl, '_blank', 'width=600,height=400')}
+                    className="flex flex-col items-center py-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-blue-600 hover:text-white transition-colors text-xs font-bold gap-1.5 group">
+                    <div className="w-6 h-6 flex items-center justify-center">
+                      {icon && icon.startsWith('http')
+                        ? <img src={icon} alt={label} className="w-5 h-5 object-contain group-hover:brightness-0 group-hover:invert transition-all"/>
+                        : <span className="text-base">{icon || '🔗'}</span>
+                      }
+                    </div>
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Copy link */}
+            <button onClick={handleCopy}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-xs group mb-2">
+              <span className="truncate text-slate-500 dark:text-slate-400 font-mono">{rawUrl}</span>
+              <span className={`flex-shrink-0 font-bold transition-colors ${copied ? 'text-green-600' : 'text-blue-600 group-hover:text-blue-700'}`}>
+                {copied ? '✓ Copied!' : '📋 Copy'}
+              </span>
+            </button>
+
+            {/* Native share (mobile) */}
+            {typeof navigator !== 'undefined' && navigator.share && (
+              <button onClick={handleNativeShare}
+                className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors">
+                ↗ Share…
+              </button>
+            )}
           </div>
 
           {/* Weather Card */}

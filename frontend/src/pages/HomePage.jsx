@@ -64,10 +64,17 @@ function WeatherStrip() {
           lon = pos.coords.longitude
           cityName = await _getCityName(lat, lon)
         } catch {
-          // Fall back to IP — ipwho.is supports CORS
-          const ip = await fetch('https://ipwho.is/').then(r => r.json())
-          if (!ip.success) throw new Error('IP failed')
-          lat = ip.latitude; lon = ip.longitude; cityName = ip.city || ip.region || ''
+          // Fall back to IP — try multiple CORS-friendly APIs
+          const ip = await (async () => {
+            const apis = [
+              async () => { const d = await fetch('https://ipapi.co/json/').then(r=>r.json()); if (!d.latitude) throw 0; return { lat:d.latitude, lon:d.longitude, city:d.city||'' } },
+              async () => { const d = await fetch('https://freeipapi.com/api/json').then(r=>r.json()); if (!d.latitude) throw 0; return { lat:d.latitude, lon:d.longitude, city:d.cityName||'' } },
+              async () => { const d = await fetch('https://ip.seeip.org/geoip').then(r=>r.json()); if (!d.latitude) throw 0; return { lat:d.latitude, lon:d.longitude, city:d.city||'' } },
+            ]
+            for (const a of apis) { try { return await a() } catch { /* next */ } }
+            throw new Error('all failed')
+          })()
+          lat = ip.lat; lon = ip.lon; cityName = ip.city''
         }
 
         const weather = await _getWxByCoords(lat, lon)
