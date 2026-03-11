@@ -3,8 +3,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { getCategories } from '../utils'
-
-const TICKER = 'AI surpasses human performance on reasoning benchmarks • Global renewable energy hits record high • SpaceX announces Mars mission timeline • New study links gut microbiome to mental health • Tech giants invest $50B in quantum computing •'
+import { fetchArticles } from '../api'
 
 export default function PublicLayout() {
   const { dark, toggleDark } = useApp()
@@ -12,7 +11,15 @@ export default function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearch] = useState(false)
   const [query, setQuery] = useState('')
-  const [cats, setCats] = useState(getCategories())
+  const [cats, setCats]     = useState(getCategories())
+  const [tickerArticles, setTickerArticles] = useState([])
+
+  // Fetch last 10 published articles for breaking news ticker
+  useEffect(() => {
+    fetchArticles({ limit: 10 })
+      .then(d => { if (d.articles?.length) setTickerArticles(d.articles) })
+      .catch(() => {})
+  }, [])
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -82,12 +89,24 @@ export default function PublicLayout() {
         )}
       </header>
 
-      <div className="bg-blue-600 text-white flex items-center h-9 overflow-hidden">
-        <span className="bg-black/20 px-4 h-full flex items-center text-xs font-bold tracking-widest flex-shrink-0">BREAKING</span>
-        <div className="overflow-hidden flex-1">
-          <span className="ticker-scroll inline-block whitespace-nowrap text-xs font-medium py-2">{TICKER} {TICKER}</span>
+      {tickerArticles.length > 0 && (
+        <div className="bg-blue-600 text-white flex items-center h-9 overflow-hidden">
+          <span className="bg-black/20 px-4 h-full flex items-center text-xs font-bold tracking-widest flex-shrink-0 border-r border-white/20">BREAKING</span>
+          <div className="overflow-hidden flex-1">
+            <span className="ticker-scroll inline-block whitespace-nowrap text-xs font-medium py-2">
+              {[...tickerArticles, ...tickerArticles].map((a, i) => (
+                <span key={i}>
+                  <Link to={`/article/${a.id}`}
+                    className="hover:underline hover:text-blue-200 transition-colors cursor-pointer">
+                    {a.title}
+                  </Link>
+                  <span className="mx-4 opacity-60">•</span>
+                </span>
+              ))}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       <main className="flex-1"><Outlet /></main>
 
