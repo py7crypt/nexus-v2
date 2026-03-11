@@ -13,32 +13,53 @@ def _run(c):
 
 def _get_id(path):
     """
-    Extract article ID — first from ?id= query param (set by vercel.json rewrite),
-    then fall back to last path segment.
+    Vercel injects the [id] param in two ways:
+    1. As ?id=UUID in the query string (file-based routing)
+    2. As the last segment of self.path
+    Try both.
     """
-    qs = parse_qs(urlparse(path).query)
+    parsed = urlparse(path)
+    qs = parse_qs(parsed.query)
+
+    # Method 1: Vercel query param injection
     if qs.get("id"):
         return qs["id"][0]
-    return urlparse(path).path.rstrip("/").split("/")[-1]
 
-def _load_article(article_id):
-    # Strip any accidental JSON wrapping from old corrupt IDs
-    if article_id.startswith("{"):
+    # Method 2: last path segment
+    segment = parsed.path.rstrip("/").split("/")[-1]
+    # Ignore if it's literally "[id]" (rewrite didn't substitute)
+    if segment and segment != "[id]":
+        return segment
+
+    return None
+
+def _clean_id(raw_id):
+    """Handle corrupt {"value": "uuid"} entries."""
+    if raw_id and raw_id.startswith("{"):
         try:
-            article_id = json.loads(article_id).get("value", article_id)
+            return json.loads(raw_id).get("value", raw_id)
         except Exception:
             pass
+    return raw_id
 
+def _load_article(article_id):
+    if not article_id:
+        return None
+
+    article_id = _clean_id(article_id)
+
+    # Fast path: direct KV key lookup
     raw = _run(kv_get(f"article:{article_id}"))
     a = _parse_article(raw)
     if a:
         return a
 
-    # Fallback: full scan (handles slug lookups)
+    # Fallback: scan all articles (handles slug-based URLs too)
     arts, _ = _run(get_all_articles(status="all", limit=5000))
     for art in arts:
         if art.get("id") == article_id or art.get("slug") == article_id:
             return art
+
     return None
 
 class handler(BaseHTTPRequestHandler):
@@ -62,7 +83,12 @@ class handler(BaseHTTPRequestHandler):
         article_id = _get_id(self.path)
         a = _load_article(article_id)
         if not a:
-            return self._json(404, {"success": False, "error": "Article not found", "id": article_id})
+            return self._json(404, {
+                "success": False,
+                "error": "Article not found",
+                "received_path": self.path,
+                "extracted_id": article_id,
+            })
         a["views"] = a.get("views", 0) + 1
         _run(kv_set(f"article:{a['id']}", a))
         self._json(200, {"success": True, "article": a})
@@ -73,7 +99,7 @@ class handler(BaseHTTPRequestHandler):
         article_id = _get_id(self.path)
         a = _load_article(article_id)
         if not a:
-            return self._json(404, {"success": False, "error": "Article not found", "id": article_id})
+            return self._json(404, {"success": False, "error": "Article not found", "received_path": self.path})
         n = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(n)) if n else {}
         for k in ARTICLE_FIELDS:
@@ -89,7 +115,7 @@ class handler(BaseHTTPRequestHandler):
         article_id = _get_id(self.path)
         a = _load_article(article_id)
         if not a:
-            return self._json(404, {"success": False, "error": "Article not found", "id": article_id})
+            return self._json(404, {"success": False, "error": "Article not found"})
         _run(kv_del(f"article:{a['id']}"))
         _run(kv_lrem("article:ids", a["id"]))
         self._json(200, {"success": True, "message": "Deleted"})

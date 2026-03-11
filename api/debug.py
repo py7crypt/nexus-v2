@@ -1,8 +1,8 @@
 """
-Debug + maintenance endpoint.
-GET  /api/debug          → env, KV health, article list
-GET  /api/debug?id=UUID  → look up one article
-GET  /api/debug?cleanup=1 → fix corrupt {"value":"uuid"} entries in article:ids list
+Debug endpoint.
+GET /api/debug              → env + KV health + article list
+GET /api/debug?id=UUID      → look up one article
+GET /api/debug?cleanup=1    → fix corrupt {"value":"uuid"} IDs in KV
 """
 import sys, os, json, asyncio
 sys.path.insert(0, os.path.dirname(__file__))
@@ -34,13 +34,14 @@ class handler(BaseHTTPRequestHandler):
         kv_token = os.environ.get("KV_REST_API_TOKEN", "")
 
         result = {
+            "self_path":  self.path,
             "env": {
                 "KV_REST_API_URL":   (kv_url[:40] + "...") if len(kv_url) > 40 else (kv_url or "NOT SET"),
                 "KV_REST_API_TOKEN": "SET ✓" if kv_token else "NOT SET ✗",
                 "ADMIN_SECRET":      "SET ✓" if os.environ.get("ADMIN_SECRET") else "NOT SET ✗",
             },
             "admin_secret_value": ADMIN_SECRET,
-            "auth_valid": verify_token(self.headers.get("Authorization", "")),
+            "auth_valid":    verify_token(self.headers.get("Authorization", "")),
             "kv_configured": _has_kv(),
         }
 
@@ -50,13 +51,10 @@ class handler(BaseHTTPRequestHandler):
             result["kv_working"] = result["kv_read"] == "ok"
 
             raw_ids = _run(kv_lrange("article:ids", 0, -1))
-            result["article_ids_raw"] = raw_ids
-
-            # Detect corrupt entries
             corrupt = [x for x in raw_ids if x.startswith("{")]
             clean   = [x for x in raw_ids if not x.startswith("{")]
-            result["corrupt_ids"] = corrupt
-            result["clean_ids"]   = clean
+            result["article_ids"]    = raw_ids
+            result["corrupt_count"]  = len(corrupt)
 
             if cleanup and corrupt:
                 fixed = []
@@ -70,23 +68,18 @@ class handler(BaseHTTPRequestHandler):
                     except Exception as e:
                         fixed.append({"error": str(e), "entry": bad})
                 result["cleanup_result"] = fixed
-                result["cleanup_done"] = True
+                result["cleanup_done"]   = True
 
             if article_id:
                 key = f"article:{article_id}"
                 raw = _upstash("GET", key)
-                result["lookup_key"]    = key
-                result["lookup_found"]  = raw is not None
-                result["lookup_parsed"] = _parse_article(raw) is not None
-                if raw:
-                    a = _parse_article(raw)
-                    if a:
-                        result["lookup_title"] = a.get("title")
-                        result["lookup_id"]    = a.get("id")
-                    else:
-                        result["lookup_raw_preview"] = str(raw)[:300]
-        else:
-            result["kv_working"] = False
+                a   = _parse_article(raw)
+                result["lookup"] = {
+                    "key":    key,
+                    "found":  raw is not None,
+                    "parsed": a is not None,
+                    "title":  a.get("title") if a else None,
+                }
 
         self._json(200, result)
 

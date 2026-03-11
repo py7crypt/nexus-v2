@@ -4,12 +4,6 @@
   "outputDirectory": "frontend/dist",
   "installCommand": "cd frontend && npm install",
   "framework": null,
-  "rewrites": [
-    {
-      "source": "/api/articles/:id",
-      "destination": "/api/articles/[id]?id=:id"
-    }
-  ],
   "headers": [
     {
       "source": "/api/(.*)",
