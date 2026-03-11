@@ -1,23 +1,57 @@
 // src/utils.js
-export const CAT_COLORS = {
-  Technology:    '#1E73FF',
-  Science:       '#7C3AED',
-  Business:      '#059669',
-  Health:        '#DC2626',
-  Lifestyle:     '#D97706',
-  Travel:        '#0891B2',
-  Entertainment: '#DB2777',
+
+const STORAGE_KEY = 'nexus_categories'
+
+const DEFAULT_CATS = [
+  { name: 'Technology',    color: '#1E73FF', icon: '💻' },
+  { name: 'Science',       color: '#7C3AED', icon: '🔬' },
+  { name: 'Business',      color: '#059669', icon: '📈' },
+  { name: 'Health',        color: '#DC2626', icon: '❤️' },
+  { name: 'Lifestyle',     color: '#D97706', icon: '🌿' },
+  { name: 'Travel',        color: '#0891B2', icon: '✈️' },
+  { name: 'Entertainment', color: '#DB2777', icon: '🎬' },
+]
+
+// Always read live from localStorage so any page gets updates instantly
+export function getCategories() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : DEFAULT_CATS
+  } catch { return DEFAULT_CATS }
 }
 
-export const CATEGORIES = Object.keys(CAT_COLORS)
+export function saveCategories(cats) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats))
+}
+
+// Derived helpers — computed fresh each call
+export function getCatColors() {
+  return Object.fromEntries(getCategories().map(c => [c.name, c.color]))
+}
+
+export function getCatIcons() {
+  return Object.fromEntries(getCategories().map(c => [c.name, c.icon]))
+}
+
+// Keep these as lazy getters so existing imports still work
+export const CAT_COLORS = new Proxy({}, {
+  get(_, key) { return getCatColors()[key] || '#1E73FF' },
+  ownKeys()   { return getCategories().map(c => c.name) },
+  has(_, key) { return getCategories().some(c => c.name === key) },
+  getOwnPropertyDescriptor(_, key) {
+    return { enumerable: true, configurable: true, value: getCatColors()[key] || '#1E73FF' }
+  }
+})
+
+// CATEGORIES array — always fresh
+export function CATEGORIES() { return getCategories().map(c => c.name) }
+
+export function catColor(cat) { return getCatColors()[cat] || '#1E73FF' }
+export function catIcon(cat)  { return getCatIcons()[cat]  || '📰' }
 
 export function catClass(cat) {
-  const map = {
-    Technology: 'cat-tech', Science: 'cat-science', Business: 'cat-business',
-    Health: 'cat-health', Lifestyle: 'cat-lifestyle', Travel: 'cat-travel',
-    Entertainment: 'cat-entertainment',
-  }
-  return map[cat] || 'cat-tech'
+  // Dynamic: just return a stable class; color applied via inline style
+  return 'cat-dynamic'
 }
 
 export function formatDate(iso) {

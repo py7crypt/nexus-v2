@@ -1,6 +1,7 @@
 // src/pages/admin/Categories.jsx
 import { useState, useEffect } from 'react'
 import { toast } from '../../components/shared'
+import { getCategories, saveCategories } from '../../utils'
 
 const DEFAULT_CATEGORIES = [
   { name: 'Technology',    color: '#1E73FF', icon: '💻' },
@@ -19,27 +20,20 @@ const PRESET_COLORS = [
 
 const PRESET_ICONS = ['💻','🔬','📈','❤️','🌿','✈️','🎬','🎵','📚','🍔','⚽','🏠','💡','🌍','🎨']
 
-const STORAGE_KEY = 'nexus_categories'
-
-function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : DEFAULT_CATEGORIES
-  } catch { return DEFAULT_CATEGORIES }
-}
-
-function save(cats) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats))
-}
+// uses saveCategories / getCategories from utils
 
 export default function Categories() {
-  const [categories, setCategories] = useState(load)
+  const [categories, setCategories] = useState(getCategories)
   const [form, setForm]             = useState({ name: '', color: '#1E73FF', icon: '💻' })
-  const [editing, setEditing]       = useState(null)   // index being edited
+  const [editing, setEditing]       = useState(null)
   const [deleteIdx, setDeleteIdx]   = useState(null)
   const [showIconPicker, setShowIconPicker] = useState(false)
 
-  useEffect(() => { save(categories) }, [categories])
+  // Save and broadcast whenever categories change
+  useEffect(() => {
+    saveCategories(categories)
+    window.dispatchEvent(new Event('storage'))
+  }, [categories])
 
   const isDefault = (name) => DEFAULT_CATEGORIES.some(d => d.name === name)
 
@@ -84,7 +78,7 @@ export default function Categories() {
 
   const handleReset = () => {
     setCategories(DEFAULT_CATEGORIES)
-    save(DEFAULT_CATEGORIES)
+    saveCategories(DEFAULT_CATEGORIES)
     toast('🔄 Reset to defaults', 'success')
   }
 
