@@ -1,46 +1,58 @@
 // src/components/NewsScraperModal.jsx
 // Scrape real news from Google News RSS — no AI needed
 import { useState, useEffect } from 'react'
-import { fetchNews, fetchArticleMeta } from '../api'
+import { fetchNews, fetchArticleMeta, fetchScrapeSettings } from '../api'
 import { getCategories } from '../utils'
-
-const CATS = ['All', ...Object.keys({
-  Technology:1, Science:1, Business:1, Health:1,
-  Politics:1, Sports:1, Entertainment:1, Travel:1, Culture:1
-})]
 
 export default function NewsScraperModal({ onFill, onClose }) {
   const [articles,  setArticles]  = useState([])
+  const [sources,   setSources]   = useState([])   // enabled RSS sources from settings
   const [loading,   setLoading]   = useState(true)
-  const [fetching,  setFetching]  = useState(null)  // URL being fetched
-  const [category,  setCategory]  = useState('All')
+  const [fetching,  setFetching]  = useState(null)
+  const [sourceId,  setSourceId]  = useState('all') // 'all' | site.id | 'search'
   const [search,    setSearch]    = useState('')
   const [error,     setError]     = useState('')
 
-  const load = async (cat, q) => {
+  // Load enabled sources from settings on mount
+  useEffect(() => {
+    fetchScrapeSettings()
+      .then(d => {
+        if (d.success) setSources(d.settings.sites.filter(s => s.enabled))
+      })
+      .catch(() => {})
+  }, [])
+
+  const load = async (sid, q) => {
     setLoading(true); setError('')
     try {
-      const res = await fetchNews({
-        q:        q    || undefined,
-        category: (cat && cat !== 'All') ? cat : undefined,
-      })
+      let res
+      if (q) {
+        res = await fetchNews({ q })
+      } else if (sid && sid !== 'all') {
+        const token = localStorage.getItem('nexus_token') || ''
+        res = await fetch(`/api/news?source_id=${encodeURIComponent(sid)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json())
+      } else {
+        res = await fetchNews({})
+      }
       if (res.success) setArticles(res.articles)
       else setError(res.error || 'Failed to load news')
     } catch(e) { setError(e.message) }
     finally { setLoading(false) }
   }
 
-  useEffect(() => { load('All', '') }, [])
+  useEffect(() => { load('all', '') }, [])
 
-  const handleCategoryChange = (cat) => {
-    setCategory(cat)
+  const handleSourceChange = (sid) => {
+    setSourceId(sid)
     setSearch('')
-    load(cat, '')
+    load(sid, '')
   }
 
   const handleSearch = (e) => {
     e.preventDefault()
-    load(category, search)
+    if (search.trim()) load(sourceId, search)
   }
 
   const handlePick = async (article) => {
@@ -51,7 +63,8 @@ export default function NewsScraperModal({ onFill, onClose }) {
       const meta = res.success ? res.meta : {}
 
       // Guess category from current filter or fallback
-      const cat = category !== 'All' ? category : ''
+      const activeSrc = sources.find(s => s.id === sourceId)
+      const cat = activeSrc?.category || article.category || ''
 
       onFill({
         title:       meta.title       || article.title,
@@ -108,14 +121,22 @@ export default function NewsScraperModal({ onFill, onClose }) {
               className="btn-outline text-sm py-2 px-3">↺</button>
           </form>
           <div className="flex gap-1.5 flex-wrap">
-            {CATS.map(cat => (
-              <button key={cat} onClick={() => handleCategoryChange(cat)}
+            <button onClick={() => handleSourceChange('all')}
+              className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
+                sourceId === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}>
+              All Sources
+            </button>
+            {sources.map(s => (
+              <button key={s.id} onClick={() => handleSourceChange(s.id)}
                 className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
-                  category === cat
+                  sourceId === s.id
                     ? 'bg-blue-600 text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}>
-                {cat}
+                {s.name}
               </button>
             ))}
           </div>

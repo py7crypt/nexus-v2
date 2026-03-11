@@ -8,6 +8,7 @@ const NAV = [
   { to: '/admin/ai',         label: 'AI Generator', icon: '🤖', badge: 'AI' },
   { to: '/admin/categories', label: 'Categories',   icon: '🏷️' },
   { to: '/admin/social',     label: 'Social Media', icon: '📱' },
+  { to: '/admin/scrape',     label: 'Scrape Settings', icon: '📡' },
   { to: '/admin/settings',   label: 'Settings',     icon: '⚙️' },
 ]
 

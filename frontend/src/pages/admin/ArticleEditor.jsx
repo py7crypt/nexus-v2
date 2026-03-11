@@ -390,7 +390,6 @@ export default function ArticleEditor() {
           </div>
         </div>
       </div>
-    </div>
 
       {showNews && (
         <NewsScraperModal
