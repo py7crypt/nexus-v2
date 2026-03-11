@@ -16,10 +16,23 @@ async function request(path, opts = {}) {
       ...opts.headers,
     },
   })
-  const data = await res.json()
+
+  let data
+  try {
+    data = await res.json()
+  } catch {
+    throw new Error(`HTTP ${res.status}: invalid response`)
+  }
+
+  // 401 → clear stale token and give clear message
+  if (res.status === 401) {
+    throw new Error('Unauthorized — your session expired. Please log out and log back in.')
+  }
+
   if (!res.ok && !data.success) {
     throw new Error(data.error || `HTTP ${res.status}`)
   }
+
   return data
 }
 
@@ -44,20 +57,22 @@ export const fetchAllArticles = ({ category, status = 'all', limit = 100, offset
   return request(`/api/articles?${params}`)
 }
 
-export const createArticle = (data) =>
-  request('/api/articles', { method: 'POST', body: JSON.stringify(data) })
+export const createArticle  = (data)     => request('/api/articles',     { method: 'POST',   body: JSON.stringify(data) })
+export const updateArticle  = (id, data) => request(`/api/articles/${id}`, { method: 'PUT',  body: JSON.stringify(data) })
+export const deleteArticle  = (id)       => request(`/api/articles/${id}`, { method: 'DELETE' })
+export const generateAI     = (data)     => request('/api/ai-generate',  { method: 'POST',   body: JSON.stringify(data) })
+export const scrapeArticle  = (title)    => request('/api/scrape',         { method: 'POST',   body: JSON.stringify({ title }) })
 
-export const updateArticle = (id, data) =>
-  request(`/api/articles/${id}`, { method: 'PUT', body: JSON.stringify(data) })
-
-export const deleteArticle = (id) =>
-  request(`/api/articles/${id}`, { method: 'DELETE' })
-
-export const generateAI = (data) =>
-  request('/api/ai-generate', { method: 'POST', body: JSON.stringify(data) })
+// ── News Scraper (no AI) ─────────────────────────────────────
+export const fetchNews        = ({ q, category } = {}) => {
+  const p = new URLSearchParams()
+  if (q)        p.set('q', q)
+  if (category) p.set('category', category)
+  return request(`/api/news${p.toString() ? '?' + p : ''}`)
+}
+export const fetchArticleMeta = (url) =>
+  request(`/api/news?fetch=${encodeURIComponent(url)}`)
 
 // ── Categories ───────────────────────────────────────────────
-export const fetchCategories = () => request('/api/categories')
-
-export const saveCategoriesToAPI = (categories) =>
-  request('/api/categories', { method: 'POST', body: JSON.stringify({ categories }) })
+export const fetchCategories       = ()     => request('/api/categories')
+export const saveCategoriesToAPI   = (cats) => request('/api/categories', { method: 'POST', body: JSON.stringify({ categories: cats }) })

@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { generateAI, createArticle } from '../../api'
+import { generateAI, createArticle, scrapeArticle } from '../../api'
 import { Spinner, toast, CatBadge } from '../../components/shared'
 import { getCategories } from '../../utils'
 
@@ -42,6 +42,8 @@ export default function AIGenerator() {
   const [status, setStatus]       = useState('')
   const [result, setResult]       = useState(null)
   const [publishing, setPublishing] = useState(false)
+  const [scraping,   setScraping]   = useState(false)
+  const [scrapeInput, setScrapeInput] = useState('')
   const [log, setLog]             = useState([])
 
   const addLog = (msg, type='info') => setLog(l => [...l, { msg, type, id: Date.now()+Math.random() }])
@@ -118,6 +120,24 @@ export default function AIGenerator() {
   }
 
   const filteredModels = MODELS.filter(m => m.provider === selectedProvider)
+
+  const handleAIScrape = async () => {
+    if (!scrapeInput.trim()) return
+    setScraping(true)
+    addLog('🔍 Researching topic with AI...', 'info')
+    try {
+      const res = await scrapeArticle(scrapeInput)
+      if (!res.success) { addLog(`Error: ${res.error}`, 'error'); return }
+      const a = res.article
+      setResult(a)
+      setForm(f => ({ ...f, topic: scrapeInput, category: a.category || f.category }))
+      addLog('✅ AI research complete — review below', 'success')
+    } catch(e) {
+      addLog(`Error: ${e.message}`, 'error')
+    } finally {
+      setScraping(false)
+    }
+  }
 
   return (
     <div className="fade-in">

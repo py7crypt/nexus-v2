@@ -1,19 +1,18 @@
 // src/pages/admin/ArticleEditor.jsx
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { fetchArticle, createArticle, updateArticle } from '../../api'
 import { Spinner, SEOScore, toast } from '../../components/shared'
 import { getCategories, slugify, wordCount } from '../../utils'
 import Quill from 'quill'
+import NewsScraperModal from '../../components/NewsScraperModal'
 import 'quill/dist/quill.snow.css'
 
 export default function ArticleEditor() {
   const { id }   = useParams()
   const isEdit   = !!id
   const navigate = useNavigate()
-  const location = useLocation()
-  const qc       = useQueryClient()
 
   const editorRef  = useRef(null)
   const quillRef   = useRef(null)
@@ -28,12 +27,11 @@ export default function ArticleEditor() {
   const [tagInput, setTagInput]         = useState('')
   const [content, setContent]           = useState('')
   const [words, setWords]               = useState(0)
-  const [saving, setSaving]             = useState(false)
+  const [saving,   setSaving]   = useState(false)
+  const [showNews, setShowNews] = useState(false)
   const [coverPreview, setCoverPreview] = useState('')
 
   // ── Fetch article (edit mode) ─────────────────────────────────────────
-  const seedArticle = location.state?.article
-
   const { data: fetchedData, isLoading } = useQuery({
     queryKey:  ['article', id],
     queryFn:   () => fetchArticle(id),
@@ -43,7 +41,7 @@ export default function ArticleEditor() {
     retryDelay: 800,
   })
 
-  const article = fetchedData?.article || seedArticle
+  const article = fetchedData?.article
 
   // ── Mount Quill exactly once ──────────────────────────────────────────
   useEffect(() => {
@@ -166,6 +164,28 @@ export default function ArticleEditor() {
     }
   }
 
+  const handleNewsFill = (a) => {
+    setForm(f => ({
+      ...f,
+      title:           a.title           || f.title,
+      slug:            slugify(a.title   || f.title),
+      category:        a.category        || f.category,
+      excerpt:         a.excerpt         || f.excerpt,
+      cover_image:     a.cover_image     || f.cover_image,
+      seo_title:       a.seo_title       || f.seo_title       || (a.title||'').slice(0,60),
+      seo_description: a.seo_description || f.seo_description || (a.excerpt||'').slice(0,155),
+    }))
+    if (a.cover_image)  setCoverPreview(a.cover_image)
+    if (a.tags?.length) setTags(a.tags)
+    if (a.content && quillRef.current) {
+      quillRef.current.setContents([])
+      quillRef.current.clipboard.dangerouslyPasteHTML(0, a.content)
+      setContent(a.content)
+      setWords(wordCount(a.content))
+    }
+    toast('✅ Article imported — review and edit before publishing', 'success')
+  }
+
   const handlePreview = () => {
     const html = quillRef.current?.root?.innerHTML || content
     const w = window.open('', '_blank')
@@ -186,8 +206,6 @@ export default function ArticleEditor() {
     const html = quillRef.current?.root?.innerHTML || content
     if (!html || html === '<p><br></p>') { toast('Content is required', 'error'); return }
 
-    const isPublishing = (overrideStatus ?? form.status) === 'published'
-
     setSaving(true)
     try {
       const payload = {
@@ -202,8 +220,7 @@ export default function ArticleEditor() {
         : await createArticle(payload)
 
       if (res.success) {
-        toast(isPublishing ? '🚀 Published!' : '💾 Draft saved!', 'success')
-        qc.invalidateQueries(['admin-articles-all'])
+        toast((overrideStatus ?? form.status) === 'published' ? '🚀 Published!' : '💾 Draft saved!', 'success')
 
         // Always redirect to dashboard after any save
         navigate('/admin')
@@ -217,7 +234,7 @@ export default function ArticleEditor() {
     }
   }
 
-  if (isEdit && isLoading && !seedArticle) {
+  if (isEdit && isLoading) {
     return <div className="flex justify-center items-center min-h-64"><Spinner size="lg"/></div>
   }
 
@@ -251,9 +268,17 @@ export default function ArticleEditor() {
           {/* Title + Slug */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
             <div className="mb-4">
-              <label className="form-label">Title *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="form-label mb-0">Title *</label>
+                {!isEdit && (
+                  <button onClick={() => setShowNews(true)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors">
+                    <span>📰</span><span>Import from News</span>
+                  </button>
+                )}
+              </div>
               <input value={form.title} onChange={e => handleTitleChange(e.target.value)}
-                className="form-input text-lg font-semibold" placeholder="Enter a compelling headline..."/>
+                className="form-input text-lg font-semibold" placeholder="Enter article headline..."/>
             </div>
             <div>
               <label className="form-label">Slug</label>
@@ -365,6 +390,14 @@ export default function ArticleEditor() {
           </div>
         </div>
       </div>
+    </div>
+
+      {showNews && (
+        <NewsScraperModal
+          onFill={handleNewsFill}
+          onClose={() => setShowNews(false)}
+        />
+      )}
     </div>
   )
 }

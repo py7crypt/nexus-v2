@@ -30,6 +30,7 @@ function IconPreview({ src }) {
 
 export default function SocialMedia() {
   const [links,    setLinks]    = useState([])
+  const [saved,    setSaved]    = useState([])   // last-saved snapshot
   const [loading,  setLoading]  = useState(true)
   const [saving,   setSaving]   = useState(false)
   const [newPlat,  setNewPlat]  = useState('twitter')
@@ -42,7 +43,7 @@ export default function SocialMedia() {
     fetch('/api/social')
       .then(r => r.json())
       .then(d => {
-        if (d.success && Array.isArray(d.links)) setLinks(d.links)
+        if (d.success && Array.isArray(d.links)) { setLinks(d.links); setSaved(d.links) }
         else if (d.success && d.social) {
           const migrated = Object.entries(d.social)
             .filter(([,v]) => v)
@@ -52,7 +53,7 @@ export default function SocialMedia() {
               icon: PLATFORM_PRESETS[k]?.icon || '',
               url: v,
             }))
-          setLinks(migrated)
+          setLinks(migrated); setSaved(migrated)
         }
       })
       .catch(() => {})
@@ -75,7 +76,7 @@ export default function SocialMedia() {
         body: JSON.stringify({ links: updatedLinks }),
       })
       const data = await res.json()
-      if (data.success) { setLinks(data.links); toast('✅ Saved!', 'success') }
+      if (data.success) { setLinks(data.links); setSaved(data.links); toast('✅ Saved!', 'success') }
       else toast(`Error: ${data.error}`, 'error')
     } catch (e) { toast(`Error: ${e.message}`, 'error') }
     finally { setSaving(false) }
@@ -88,14 +89,12 @@ export default function SocialMedia() {
     const label    = newLabel.trim() || platform.charAt(0).toUpperCase() + platform.slice(1)
     const icon     = newIcon.trim() || PLATFORM_PRESETS[platform]?.icon || ''
     const id       = `${platform}-${Date.now()}`
-    const updated  = [...links, { id, platform, label, icon, url }]
-    setLinks(updated)
-    save(updated)
+    setLinks(ls => [...ls, { id, platform, label, icon, url }])
     setNewUrl(''); setNewLabel(''); setNewPlat('twitter')
     setNewIcon(PLATFORM_PRESETS.twitter.icon); setCustom(false)
   }
 
-  const handleDelete = (id) => { const u = links.filter(l=>l.id!==id); setLinks(u); save(u) }
+  const handleDelete = (id) => { setLinks(ls => ls.filter(l => l.id !== id)) }
   const updateField  = (id, field, val) => setLinks(ls => ls.map(l => l.id===id ? {...l,[field]:val} : l))
 
   if (loading) return (
@@ -114,9 +113,14 @@ export default function SocialMedia() {
             <span className="ml-2 text-blue-500 font-medium">{links.length} link{links.length!==1?'s':''}</span>
           </p>
         </div>
-        <button onClick={() => save(links)} disabled={saving} className="btn-primary text-sm py-2 px-5 flex-shrink-0">
-          {saving ? '⏳ Saving...' : '💾 Save All'}
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {JSON.stringify(links) !== JSON.stringify(saved) && (
+            <span className="text-xs text-amber-500 font-medium">● Unsaved changes</span>
+          )}
+          <button onClick={() => save(links)} disabled={saving} className="btn-primary text-sm py-2 px-5">
+            {saving ? '⏳ Saving...' : '💾 Save All'}
+          </button>
+        </div>
       </div>
 
       {/* Add new */}

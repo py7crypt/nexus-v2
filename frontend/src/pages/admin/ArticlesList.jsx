@@ -3,8 +3,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { fetchAllArticles, deleteArticle } from '../../api'
-import { Spinner, StatusPill } from '../../components/shared'
-import { toast } from '../../components/shared'
+import { Spinner, StatusPill, toast } from '../../components/shared'
 import { formatDate, catColor, getCategories } from '../../utils'
 
 export default function ArticlesList() {
