@@ -64,6 +64,9 @@ export const generateAI     = (data)     => request('/api/ai-generate',  { metho
 export const scrapeArticle  = (title)    => request('/api/scrape',         { method: 'POST',   body: JSON.stringify({ title }) })
 
 // ── News Scraper (no AI) ─────────────────────────────────────
+export const fetchScrapeSettings = ()    => request('/api/scrape-settings')
+export const saveScrapeSettings  = (cfg) => request('/api/scrape-settings', { method: 'POST', body: JSON.stringify(cfg) })
+
 export const fetchNews        = ({ q, category } = {}) => {
   const p = new URLSearchParams()
   if (q)        p.set('q', q)
