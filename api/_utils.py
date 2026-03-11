@@ -1,5 +1,5 @@
 """
-Shared utilities — auth, KV storage via Upstash REST (correct format), in-memory fallback
+Shared utilities — auth, KV storage via Upstash REST (correct POST+JSON format), in-memory fallback
 """
 import os, json, uuid
 from datetime import datetime, timezone
@@ -25,44 +25,40 @@ _lists: dict = {}
 def _has_kv() -> bool:
     return bool(os.environ.get("KV_REST_API_URL") and os.environ.get("KV_REST_API_TOKEN"))
 
-# ─── UPSTASH REST — correct command format ──────────────────────────────────
-# Upstash REST API: POST /<COMMAND>/<arg1>/<arg2>/...
-# Body is unused for most commands — args go in the URL path.
+# ─── UPSTASH REST — correct format ─────────────────────────────────────────
+# POST to base URL with JSON array body: ["COMMAND", "arg1", "arg2", ...]
 # Ref: https://upstash.com/docs/redis/features/restapi
 
-def _upstash(command: str, *args) -> Any:
-    """Execute a Redis command via Upstash REST API."""
+def _upstash(*args) -> Any:
+    """Execute a Redis command via Upstash REST API (POST + JSON array body)."""
     import urllib.request, urllib.error
     base_url = os.environ.get("KV_REST_API_URL", "").rstrip("/")
     token    = os.environ.get("KV_REST_API_TOKEN", "")
     if not base_url or not token:
         return None
 
-    # Build URL: /COMMAND/arg1/arg2/...
-    # URL-encode each arg to handle special chars (spaces, slashes, etc.)
-    from urllib.parse import quote
-    parts = [command.upper()] + [quote(str(a), safe="") for a in args]
-    url = base_url + "/" + "/".join(parts)
-
+    payload = json.dumps(list(args)).encode()
     req = urllib.request.Request(
-        url,
-        headers={"Authorization": f"Bearer {token}"},
-        method="GET",  # Upstash REST accepts GET for read commands
+        base_url,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type":  "application/json",
+        },
+        method="POST",
     )
-    # For write commands Upstash also accepts GET with args in URL
     try:
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
             return data.get("result")
     except urllib.error.HTTPError as e:
-        err = e.read().decode()[:200]
-        print(f"Upstash error {e.code}: {err}")
+        print(f"Upstash HTTP error {e.code}: {e.read().decode()[:300]}")
         return None
     except Exception as e:
-        print(f"Upstash request failed: {e}")
+        print(f"Upstash error: {e}")
         return None
 
-# ─── KV INTERFACE (async wrappers so existing callers don't change) ─────────
+# ─── KV INTERFACE ───────────────────────────────────────────────────────────
 
 async def kv_get(key: str) -> Optional[str]:
     if _has_kv():
@@ -109,7 +105,7 @@ ARTICLE_FIELDS = {
     "tags", "status", "cover_image", "seo_title", "seo_description", "slug"
 }
 
-# ─── HELPERS ───────────────────────────────────────────────────────────────
+# ─── ARTICLE HELPERS ───────────────────────────────────────────────────────
 
 def make_slug(title: str, article_id: str) -> str:
     base = "".join(c if c.isalnum() or c in " -" else "" for c in title.lower())

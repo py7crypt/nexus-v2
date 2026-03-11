@@ -1,8 +1,11 @@
 // src/utils.js
+// Categories are stored in KV via /api/categories and cached in localStorage.
+// getCategories() returns the localStorage cache (fast, sync).
+// loadCategoriesFromAPI() fetches fresh from server and updates cache.
 
 const STORAGE_KEY = 'nexus_categories'
 
-const DEFAULT_CATS = [
+export const DEFAULT_CATS = [
   { name: 'Technology',    color: '#1E73FF', icon: '💻' },
   { name: 'Science',       color: '#7C3AED', icon: '🔬' },
   { name: 'Business',      color: '#059669', icon: '📈' },
@@ -12,7 +15,7 @@ const DEFAULT_CATS = [
   { name: 'Entertainment', color: '#DB2777', icon: '🎬' },
 ]
 
-// Always read live from localStorage so any page gets updates instantly
+// ── Sync read from localStorage cache (used everywhere synchronously) ──────
 export function getCategories() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -20,40 +23,53 @@ export function getCategories() {
   } catch { return DEFAULT_CATS }
 }
 
+// ── Write to localStorage + broadcast to same-tab listeners ───────────────
 export function saveCategories(cats) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cats))
+  window.dispatchEvent(new Event('storage'))
 }
 
-// Derived helpers — computed fresh each call
-export function getCatColors() {
-  return Object.fromEntries(getCategories().map(c => [c.name, c.color]))
+// ── Fetch from /api/categories and update localStorage cache ──────────────
+export async function loadCategoriesFromAPI() {
+  try {
+    const res = await fetch('/api/categories')
+    const data = await res.json()
+    if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
+      saveCategories(data.categories)
+      return data.categories
+    }
+  } catch (e) {
+    console.warn('Could not load categories from API, using cache:', e)
+  }
+  return getCategories()
 }
 
-export function getCatIcons() {
-  return Object.fromEntries(getCategories().map(c => [c.name, c.icon]))
+// ── Color / icon helpers ───────────────────────────────────────────────────
+export function catColor(cat) {
+  const found = getCategories().find(c => c.name === cat)
+  return found ? found.color : '#1E73FF'
 }
 
-// Keep these as lazy getters so existing imports still work
+export function catIcon(cat) {
+  const found = getCategories().find(c => c.name === cat)
+  return found ? found.icon : '📰'
+}
+
+// ── Legacy proxy exports (keep old imports working) ───────────────────────
 export const CAT_COLORS = new Proxy({}, {
-  get(_, key) { return getCatColors()[key] || '#1E73FF' },
-  ownKeys()   { return getCategories().map(c => c.name) },
-  has(_, key) { return getCategories().some(c => c.name === key) },
+  get(_, key)  { return catColor(key) },
+  has(_, key)  { return getCategories().some(c => c.name === key) },
+  ownKeys()    { return getCategories().map(c => c.name) },
   getOwnPropertyDescriptor(_, key) {
-    return { enumerable: true, configurable: true, value: getCatColors()[key] || '#1E73FF' }
+    return { enumerable: true, configurable: true, value: catColor(key) }
   }
 })
 
-// CATEGORIES array — always fresh
 export function CATEGORIES() { return getCategories().map(c => c.name) }
 
-export function catColor(cat) { return getCatColors()[cat] || '#1E73FF' }
-export function catIcon(cat)  { return getCatIcons()[cat]  || '📰' }
+export function catClass() { return 'cat-dynamic' }
 
-export function catClass(cat) {
-  // Dynamic: just return a stable class; color applied via inline style
-  return 'cat-dynamic'
-}
-
+// ── General helpers ───────────────────────────────────────────────────────
 export function formatDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })

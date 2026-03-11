@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from '../../components/shared'
 import { getCategories, saveCategories } from '../../utils'
+import { saveCategoriesToAPI } from '../../api'
 
 const DEFAULT_CATEGORIES = [
   { name: 'Technology',    color: '#1E73FF', icon: '💻' },
@@ -29,10 +30,11 @@ export default function Categories() {
   const [deleteIdx, setDeleteIdx]   = useState(null)
   const [showIconPicker, setShowIconPicker] = useState(false)
 
-  // Save and broadcast whenever categories change
+  // Save to localStorage immediately + sync to KV in background
   useEffect(() => {
     saveCategories(categories)
-    window.dispatchEvent(new Event('storage'))
+    // Persist to KV so all users/devices get the same categories
+    saveCategoriesToAPI(categories).catch(e => console.warn('Category KV sync failed:', e))
   }, [categories])
 
   const isDefault = (name) => DEFAULT_CATEGORIES.some(d => d.name === name)
@@ -79,6 +81,7 @@ export default function Categories() {
   const handleReset = () => {
     setCategories(DEFAULT_CATEGORIES)
     saveCategories(DEFAULT_CATEGORIES)
+    saveCategoriesToAPI(DEFAULT_CATEGORIES).catch(() => {})
     toast('🔄 Reset to defaults', 'success')
   }
 

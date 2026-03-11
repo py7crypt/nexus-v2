@@ -55,3 +55,9 @@ export const deleteArticle = (id) =>
 
 export const generateAI = (data) =>
   request('/api/ai-generate', { method: 'POST', body: JSON.stringify(data) })
+
+// ── Categories ───────────────────────────────────────────────
+export const fetchCategories = () => request('/api/categories')
+
+export const saveCategoriesToAPI = (categories) =>
+  request('/api/categories', { method: 'POST', body: JSON.stringify({ categories }) })
