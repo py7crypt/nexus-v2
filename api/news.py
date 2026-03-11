@@ -82,13 +82,78 @@ def _get(url, timeout=10):
 
 # ── RSS parser ────────────────────────────────────────────────────────────────
 
+# ── Category keyword map ─────────────────────────────────────────────────────
+CAT_KEYWORDS = {
+    "Technology":    ["tech","ai","software","hardware","apple","google","microsoft","meta","nvidia",
+                      "robot","startup","app","cyber","internet","chip","smartphone","gadget","code",
+                      "openai","algorithm","data","cloud","5g","electric vehicle","ev","tesla"],
+    "Science":       ["science","research","study","nasa","space","climate","physics","biology",
+                      "genome","vaccine","asteroid","planet","fossil","experiment","discovery","quantum"],
+    "Business":      ["economy","market","stock","finance","trade","gdp","inflation","bank","invest",
+                      "merger","acquisition","revenue","profit","ipo","startup","fund","dollar","euro"],
+    "Health":        ["health","medical","disease","cancer","covid","drug","hospital","surgery","mental",
+                      "nutrition","fitness","obesity","diabetes","fda","who","pandemic","therapy"],
+    "Politics":      ["election","government","president","congress","senate","parliament","law","policy",
+                      "democrat","republican","minister","vote","political","diplomacy","sanction","war"],
+    "Sports":        ["football","soccer","basketball","tennis","golf","nba","nfl","fifa","olympics",
+                      "championship","league","match","tournament","player","coach","stadium","score"],
+    "Entertainment": ["movie","film","music","celebrity","award","oscar","grammy","netflix","hollywood",
+                      "actor","singer","album","concert","tv","show","series","streaming","box office"],
+    "Travel":        ["travel","tourism","hotel","flight","airline","destination","resort","visa",
+                      "passport","vacation","trip","cruise","airport","tourist"],
+    "Culture":       ["culture","art","museum","book","literature","fashion","food","cuisine","history",
+                      "religion","tradition","society","education","language","design"],
+}
+
+def _infer_category(text):
+    """Keyword-match title+excerpt against category map. Returns best match or ''."""
+    text_lower = text.lower()
+    scores = {}
+    for cat, keywords in CAT_KEYWORDS.items():
+        score = sum(1 for kw in keywords if kw in text_lower)
+        if score:
+            scores[cat] = score
+    return max(scores, key=scores.get) if scores else ""
+
+def _clean_title(title, source=""):
+    """Remove trailing source suffix, normalize whitespace, fix ALL CAPS."""
+    # Strip " | Source" and " - Source" and " :: Source" suffixes
+    for sep in [" | ", " - ", " :: ", " — ", " – "]:
+        if source and title.endswith(sep + source):
+            title = title[:-(len(sep) + len(source))]
+            break
+    # Strip generic click-bait suffixes
+    for suffix in [" - Here's what you need to know", " - report", " - sources"]:
+        if title.lower().endswith(suffix.lower()):
+            title = title[:-len(suffix)]
+    # Fix ALL CAPS titles: convert to Title Case
+    if title == title.upper() and len(title) > 10:
+        title = title.title()
+    return title.strip()
+
+def _smart_excerpt(desc, content_text="", max_len=250):
+    """Pick the best excerpt: prefer complete sentences, never cut mid-word."""
+    text = (desc or content_text or "").strip()
+    if not text:
+        return ""
+    # Try to end at a sentence boundary
+    if len(text) <= max_len:
+        return text
+    cut = text[:max_len]
+    # Find last sentence-ending punctuation
+    last_period = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    if last_period > max_len * 0.6:
+        return cut[:last_period + 1].strip()
+    # Fall back to last space (no mid-word cut)
+    last_space = cut.rfind(" ")
+    return (cut[:last_space] + "…") if last_space > 0 else cut
+
 def _parse_rss(xml_text, source_name="", default_category="", max_items=10):
     try:
         root = ET.fromstring(xml_text)
     except ET.ParseError:
         return []
     articles = []
-    # Support both RSS <item> and Atom <entry>
     ns = {"atom": "http://www.w3.org/2005/Atom"}
     items = root.findall(".//item") or root.findall(".//atom:entry", ns)
     for item in items[:max_items]:
@@ -99,24 +164,47 @@ def _parse_rss(xml_text, source_name="", default_category="", max_items=10):
         src_el = item.find("source")
         source = src_el.text.strip() if src_el is not None else source_name
 
-        # Atom <link> is an element with href attr
+        # Atom <link> href fallback
         if not link:
             link_el = item.find("atom:link", ns)
             if link_el is not None:
                 link = link_el.get("href", "")
 
-        # Google News appends " - Source Name" to titles
-        if source and title.endswith(f" - {source}"):
-            title = title[:-(len(source) + 3)]
+        # RSS <category> tags — collect all
+        rss_cats = [unescape(el.text or "").strip()
+                    for el in item.findall("category") if el.text]
+
+        # Clean title
+        title = _clean_title(title, source)
+
+        # Determine category: explicit default → RSS tags → keyword inference
+        if default_category:
+            category = default_category
+        elif rss_cats:
+            # Map RSS category text to our known categories if possible
+            rss_text = " ".join(rss_cats).lower()
+            inferred = _infer_category(rss_text)
+            category = inferred or rss_cats[0].title()
+        else:
+            category = _infer_category(title + " " + desc)
+
+        # Smart excerpt
+        excerpt = _smart_excerpt(desc, max_len=250)
+
+        # Tags: RSS category tags + source name
+        tags = [t.lower().replace(" ", "-") for t in rss_cats[:4] if t]
+        if source and source.lower().replace(" ", "-") not in tags:
+            tags.append(source.lower().replace(" ", "-"))
 
         if title and link:
             articles.append({
-                "title":    title.strip(),
+                "title":    title,
                 "url":      link.strip(),
-                "excerpt":  desc.strip()[:300],
+                "excerpt":  excerpt,
                 "source":   source,
                 "pub_date": pub,
-                "category": default_category,
+                "category": category,
+                "tags":     tags,
             })
     return articles
 
@@ -183,13 +271,31 @@ def _scrape_article(url, min_chars=60):
         content_html = (f"<p>{excerpt}</p>\n" if excerpt else "") + \
                        f'<p><em>Source: <a href="{url}" target="_blank">{site or url}</a></em></p>'
 
+    # Smart excerpt from og:description or first paragraph
+    smart_exc = _smart_excerpt(excerpt or (" ".join(paragraphs) if paragraphs else ""), max_len=250)
+
+    # Infer category from title + excerpt
+    inferred_cat = _infer_category((title or "") + " " + smart_exc)
+
+    # Tags from keywords found in title
+    inferred_tags = []
+    title_lower = (title or "").lower()
+    for cat, keywords in CAT_KEYWORDS.items():
+        for kw in keywords:
+            if kw in title_lower and kw not in inferred_tags:
+                inferred_tags.append(kw)
+    if site:
+        inferred_tags.append(site.lower().replace(" ", "-"))
+
     return {
-        "title":        title,
-        "excerpt":      (excerpt or " ".join(paragraphs)[:200]).strip(),
+        "title":        _clean_title(title or "", site or ""),
+        "excerpt":      smart_exc,
         "cover_image":  image,
         "site_name":    site,
         "content_html": content_html,
         "source_url":   url,
+        "category":     inferred_cat,
+        "tags":         inferred_tags[:6],
         "parser":       "beautifulsoup4" if HAS_BS4 else "stdlib-regex",
     }
 

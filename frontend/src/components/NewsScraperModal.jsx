@@ -2,7 +2,7 @@
 // Scrape real news from Google News RSS — no AI needed
 import { useState, useEffect } from 'react'
 import { fetchNews, fetchArticleMeta, fetchScrapeSettings } from '../api'
-import { getCategories } from '../utils'
+import { catColor } from '../utils'
 
 export default function NewsScraperModal({ onFill, onClose }) {
   const [articles,  setArticles]  = useState([])
@@ -58,36 +58,45 @@ export default function NewsScraperModal({ onFill, onClose }) {
   const handlePick = async (article) => {
     setFetching(article.url)
     try {
-      // Try to get full meta from the article page
       const res = await fetchArticleMeta(article.url)
       const meta = res.success ? res.meta : {}
 
-      // Guess category from current filter or fallback
+      // Smart field resolution: scraped meta wins over RSS, RSS wins over empty
       const activeSrc = sources.find(s => s.id === sourceId)
-      const cat = activeSrc?.category || article.category || ''
+      const title     = meta.title       || article.title   || ''
+      const excerpt   = meta.excerpt     || article.excerpt || ''
+      const image     = meta.cover_image || ''
+      // Category priority: source default → scraped inference → RSS inference
+      const category  = activeSrc?.category || meta.category || article.category || ''
+      // Tags: merge scraped + RSS tags, dedupe
+      const tags = [...new Set([
+        ...(meta.tags        || []),
+        ...(article.tags     || []),
+      ])].slice(0, 6)
+      // SEO fields — smart truncation at word boundary
+      const seoTitle = title.length > 60
+        ? title.slice(0, 57).replace(/\s+\S*$/, '') + '...'
+        : title
+      const seoDesc = excerpt.length > 155
+        ? excerpt.slice(0, 152).replace(/\s+\S*$/, '') + '...'
+        : excerpt
+      // Content: use scraped HTML if available, else build from excerpt
+      const content = meta.content_html
+        || `<p>${excerpt}</p>\n<p><em>Source: <a href="${article.url}" target="_blank">${article.source || meta.site_name || ''}</a></em></p>`
 
-      onFill({
-        title:       meta.title       || article.title,
-        excerpt:     meta.excerpt     || article.excerpt,
-        cover_image: meta.cover_image || '',
-        category:    cat,
-        seo_title:   (meta.title || article.title).slice(0, 60),
-        seo_description: (meta.excerpt || article.excerpt || '').slice(0, 155),
-        // Put content preview into editor as a starting point
-        content: meta.content_preview
-          ? `<p>${meta.content_preview.split('. ').slice(0, 8).join('. ')}.</p>\n<p><em>Source: <a href="${article.url}" target="_blank">${article.source}</a></em></p>`
-          : `<p>${article.excerpt}</p>\n<p><em>Source: <a href="${article.url}" target="_blank">${article.source}</a></em></p>`,
-        tags: article.source ? [article.source.toLowerCase().replace(/\s+/g, '-')] : [],
-      })
+      onFill({ title, excerpt, cover_image: image, category, tags, seo_title: seoTitle, seo_description: seoDesc, content })
     } catch {
-      // Fallback to RSS data only
+      // Fallback to RSS-only data — still uses smart fields from RSS parser
+      const activeSrc = sources.find(s => s.id === sourceId)
       onFill({
-        title:       article.title,
-        excerpt:     article.excerpt,
-        cover_image: '',
-        category:    category !== 'All' ? category : '',
-        content:     `<p>${article.excerpt}</p>\n<p><em>Source: <a href="${article.url}" target="_blank">${article.source}</a></em></p>`,
-        tags:        article.source ? [article.source.toLowerCase().replace(/\s+/g,'-')] : [],
+        title:           article.title   || '',
+        excerpt:         article.excerpt || '',
+        cover_image:     '',
+        category:        activeSrc?.category || article.category || '',
+        tags:            article.tags || [],
+        seo_title:       (article.title || '').slice(0, 60),
+        seo_description: (article.excerpt || '').slice(0, 155),
+        content:         `<p>${article.excerpt}</p>\n<p><em>Source: <a href="${article.url}" target="_blank">${article.source}</a></em></p>`,
       })
     } finally {
       setFetching(null)
@@ -174,13 +183,22 @@ export default function NewsScraperModal({ onFill, onClose }) {
                       {a.excerpt && (
                         <div className="text-xs text-slate-400 mt-1 line-clamp-2">{a.excerpt}</div>
                       )}
-                      <div className="flex items-center gap-3 mt-2">
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {a.category && (
+                          <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full text-white"
+                            style={{ background: catColor(a.category) }}>
+                            {a.category}
+                          </span>
+                        )}
                         {a.source && (
                           <span className="text-xs font-medium text-blue-500">{a.source}</span>
                         )}
                         {a.pub_date && (
                           <span className="text-xs text-slate-400">{new Date(a.pub_date).toLocaleDateString()}</span>
                         )}
+                        {a.tags?.slice(0,2).map(t => (
+                          <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">#{t}</span>
+                        ))}
                       </div>
                     </div>
                     <div className="flex-shrink-0 text-xs text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity mt-1">
