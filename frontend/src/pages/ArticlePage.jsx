@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchArticle, fetchArticles } from '../api'
-import { Spinner } from '../components/shared'
+import { Spinner, LikeButton } from '../components/shared'
 import { formatDate, catColor } from '../utils'
 
 export default function ArticlePage() {
@@ -28,7 +28,12 @@ export default function ArticlePage() {
   useEffect(() => {
     fetch('/api/social')
       .then(r => r.json())
-      .then(d => { if (d.success) setSocial(d.social) })
+      .then(d => {
+        if (d.success) {
+          // New format: links array; old format: social object
+          setSocial(d.links || d.social || [])
+        }
+      })
       .catch(() => {})
   }, [])
 
@@ -50,11 +55,14 @@ export default function ArticlePage() {
   const articleUrl   = encodeURIComponent(window.location.href)
   const articleTitle = encodeURIComponent(a.title)
 
-  const shareLinks = [
-    { icon: '𝕏',  label: 'Twitter',  url: social.twitter  || `https://twitter.com/intent/tweet?text=${articleTitle}&url=${articleUrl}` },
-    { icon: 'f',  label: 'Facebook', url: social.facebook  || `https://www.facebook.com/sharer/sharer.php?u=${articleUrl}` },
-    { icon: 'in', label: 'LinkedIn', url: social.linkedin  || `https://www.linkedin.com/sharing/share-offsite/?url=${articleUrl}` },
-  ]
+  const ICON_MAP = { twitter:'𝕏', facebook:'f', instagram:'📸', linkedin:'in', youtube:'▶', tiktok:'♪' }
+  const shareLinks = Array.isArray(social)
+    ? social.map(l => ({ icon: ICON_MAP[l.platform] || '🔗', label: l.label, url: l.url }))
+    : [
+        { icon: '𝕏',  label: 'Twitter',  url: social.twitter  || `https://twitter.com/intent/tweet?text=${articleTitle}&url=${articleUrl}` },
+        { icon: 'f',  label: 'Facebook', url: social.facebook  || `https://www.facebook.com/sharer/sharer.php?u=${articleUrl}` },
+        { icon: 'in', label: 'LinkedIn', url: social.linkedin  || `https://www.linkedin.com/sharing/share-offsite/?url=${articleUrl}` },
+      ]
 
   return (
     <div className="max-w-[1280px] mx-auto px-5 py-8">
@@ -98,6 +106,7 @@ export default function ArticlePage() {
             <div className="flex items-center gap-3 ml-auto text-xs text-slate-400">
               <span>👁 {a.views || 0} views</span>
               {a.tags?.length > 0 && <span>🏷 {a.tags.length} tags</span>}
+              <LikeButton articleId={a.id} />
             </div>
           </div>
 

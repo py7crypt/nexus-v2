@@ -15,6 +15,65 @@ export function CatTag({ category, size = 'sm' }) {
 }
 
 // ── Article Card ─────────────────────────────────────────────
+// ── Like Button ──────────────────────────────────────────────
+export function LikeButton({ articleId, className = '' }) {
+  const storageKey = `liked_${articleId}`
+  const [likes,   setLikes]  = useState(0)
+  const [liked,   setLiked]  = useState(() => localStorage.getItem(storageKey) === '1')
+  const [loading, setLoading]= useState(false)
+
+  useEffect(() => {
+    if (!articleId) return
+    fetch(`/api/likes?id=${articleId}`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setLikes(d.likes) })
+      .catch(() => {})
+  }, [articleId])
+
+  const handleClick = useCallback(async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (loading || liked) return   // already liked — no unlike
+    setLoading(true)
+    setLiked(true)
+    setLikes(n => n + 1)
+    localStorage.setItem(storageKey, '1')
+    try {
+      const res  = await fetch('/api/likes', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ id: articleId }),
+      })
+      const data = await res.json()
+      if (data.success) setLikes(data.likes)
+    } catch {
+      // revert on network error
+      setLiked(false)
+      setLikes(n => n - 1)
+      localStorage.removeItem(storageKey)
+    } finally {
+      setLoading(false)
+    }
+  }, [liked, loading, articleId, storageKey])
+
+  return (
+    <button
+      onClick={handleClick}
+      title={liked ? 'Liked!' : 'Like'}
+      disabled={loading || liked}
+      className={`flex items-center gap-1 px-2 py-1 rounded-full border border-white text-xs font-bold transition-all
+        bg-blue-600 text-white hover:bg-blue-700 hover:scale-105
+        ${liked   ? 'opacity-90 cursor-default scale-105' : ''}
+        ${loading ? 'opacity-60 cursor-not-allowed' : ''}
+        ${className}`}
+    >
+      <span>{liked ? '❤️' : '🤍'}</span>
+      {likes > 0 && <span>{likes}</span>}
+    </button>
+  )
+}
+
+
 export function ArticleCard({ article, size = 'md' }) {
   if (!article) return null
   const isLg = size === 'lg'
@@ -32,6 +91,10 @@ export function ArticleCard({ article, size = 'md' }) {
           style={{ background: catColor(article.category) }}>
           {article.category}
         </span>
+        {/* like button top-right */}
+        <div className="absolute top-3 right-3">
+          <LikeButton articleId={article.id} />
+        </div>
       </div>
       <div className="p-4 flex flex-col flex-1">
         <h3 className={`font-semibold leading-snug mb-2 line-clamp-3 group-hover:text-blue-600 transition-colors ${isLg ? 'text-base' : 'text-sm'}`}>

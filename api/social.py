@@ -5,8 +5,6 @@ from http.server import BaseHTTPRequestHandler
 
 KV_KEY = "nexus:social"
 
-DEFAULTS = { "twitter": "", "facebook": "", "instagram": "", "linkedin": "", "youtube": "", "tiktok": "" }
-
 def _run(c):
     loop = asyncio.new_event_loop()
     r = loop.run_until_complete(c)
@@ -18,10 +16,18 @@ async def _get():
     if raw:
         try:
             data = json.loads(raw) if isinstance(raw, str) else raw
-            return {**DEFAULTS, **data}
+            # New format: list of {id, platform, label, url}
+            if isinstance(data, list):
+                return data
+            # Migrate old flat dict format
+            if isinstance(data, dict):
+                return [
+                    {"id": k, "platform": k, "label": k.capitalize(), "url": v}
+                    for k, v in data.items() if v
+                ]
         except Exception:
             pass
-    return DEFAULTS.copy()
+    return []
 
 class handler(BaseHTTPRequestHandler):
     def _cors(self):
@@ -40,17 +46,26 @@ class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self): self._json(200, {})
 
     def do_GET(self):
-        # Public — no auth needed
-        self._json(200, {"success": True, "social": _run(_get())})
+        links = _run(_get())
+        self._json(200, {"success": True, "links": links})
 
     def do_POST(self):
         if not verify_token(self.headers.get("Authorization", "")):
             return self._json(401, {"success": False, "error": "Unauthorized"})
         n = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(n)) if n else {}
-        incoming = body.get("social", {})
-        cleaned = {k: str(incoming.get(k, "")).strip() for k in DEFAULTS}
+        links = body.get("links", [])
+        # Validate each entry
+        cleaned = []
+        for item in links:
+            if isinstance(item, dict) and item.get("url", "").strip():
+                cleaned.append({
+                    "id":       str(item.get("id", "")).strip(),
+                    "platform": str(item.get("platform", "custom")).strip().lower(),
+                    "label":    str(item.get("label", "")).strip(),
+                    "url":      str(item.get("url", "")).strip(),
+                })
         _run(kv_set(KV_KEY, json.dumps(cleaned)))
-        self._json(200, {"success": True, "social": cleaned})
+        self._json(200, {"success": True, "links": cleaned})
 
     def log_message(self, *a): pass
