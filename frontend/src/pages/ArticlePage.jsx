@@ -168,8 +168,13 @@ export default function ArticlePage() {
               {shareLinks.map(({ icon, label, url }) => (
                 <button key={label}
                   onClick={() => window.open(url, '_blank')}
-                  className="flex flex-col items-center py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-blue-600 hover:text-white transition-colors text-xs font-bold gap-1">
-                  <span className="text-base">{icon}</span>
+                  className="flex flex-col items-center py-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-blue-600 hover:text-white transition-colors text-xs font-bold gap-1.5 group">
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    {icon && icon.startsWith('http')
+                      ? <img src={icon} alt={label} className="w-5 h-5 object-contain group-hover:brightness-0 group-hover:invert transition-all"/>
+                      : <span className="text-base">{icon}</span>
+                    }
+                  </div>
                   <span>{label}</span>
                 </button>
               ))}

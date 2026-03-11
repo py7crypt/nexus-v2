@@ -143,18 +143,16 @@ export default function PublicLayout() {
           <div>
             <h4 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-4">Follow Us</h4>
             <div className="flex gap-2 flex-wrap">
-              {socialLinks.length > 0
-                ? socialLinks.map(l => (
-                    <a key={l.id} href={l.url} target="_blank" rel="noreferrer"
-                      title={l.label}
-                      className="w-9 h-9 flex items-center justify-center border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all text-base">
-                      {l.icon || '🔗'}
-                    </a>
-                  ))
-                : ['𝕏','f','◎','in','▶'].map((icon, i) => (
-                    <a key={i} href="#" className="w-9 h-9 flex items-center justify-center border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all text-sm font-bold">{icon}</a>
-                  ))
-              }
+              {socialLinks.map(l => (
+                <a key={l.id} href={l.url || '#'} target="_blank" rel="noreferrer"
+                  title={l.label}
+                  className="w-9 h-9 flex items-center justify-center border border-slate-200 dark:border-slate-700 rounded-lg hover:border-blue-600 hover:shadow-md transition-all overflow-hidden bg-white dark:bg-slate-800 p-1.5">
+                  {l.icon
+                    ? <img src={l.icon} alt={l.label} className="w-full h-full object-contain"/>
+                    : <span className="text-slate-400 text-xs font-bold">{l.label?.[0]?.toUpperCase()||'?'}</span>
+                  }
+                </a>
+              ))}
             </div>
           </div>
         </div>

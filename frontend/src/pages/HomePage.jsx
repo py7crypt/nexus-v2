@@ -18,25 +18,57 @@ const PLACEHOLDER = [
 const WX_CODES = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',80:'🌦️',81:'🌧️',82:'⛈️',95:'⛈️',99:'⛈️'}
 const WX_DESC = {0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Foggy',51:'Drizzle',53:'Drizzle',55:'Heavy drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',80:'Showers',81:'Rain showers',82:'Violent showers',95:'Thunderstorm',99:'Thunderstorm'}
 
+async function _stripByCoords(lat, lon) {
+  const [geo, w] = await Promise.all([
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`).then(r=>r.json()),
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m,apparent_temperature&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto`).then(r=>r.json()),
+  ])
+  return {
+    wx:   w.current,
+    city: geo.address?.city || geo.address?.town || geo.address?.village || geo.address?.county || '',
+  }
+}
+
+async function _stripByIP() {
+  const ip = await fetch('https://ip-api.com/json/?fields=lat,lon,city').then(r=>r.json())
+  if (!ip.lat) throw new Error('failed')
+  const w = await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${ip.lat}&longitude=${ip.lon}&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m,apparent_temperature&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto`
+  ).then(r=>r.json())
+  return { wx: w.current, city: ip.city || '' }
+}
+
 function WeatherStrip() {
-  const [wx,   setWx]   = useState(null)
-  const [city, setCity] = useState('')
+  const [wx,      setWx]      = useState(null)
+  const [city,    setCity]    = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!navigator.geolocation) { setLoading(false); return }
-    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-      const { latitude: lat, longitude: lon } = coords
-      try {
-        const [geo, w] = await Promise.all([
-          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`).then(r=>r.json()),
-          fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m,apparent_temperature&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto`).then(r=>r.json()),
-        ])
-        setCity(geo.address?.city || geo.address?.town || geo.address?.village || geo.address?.county || '')
-        setWx(w.current)
-      } catch { /* silent */ }
-      finally { setLoading(false) }
-    }, () => setLoading(false), { timeout: 8000 })
+    let cancelled = false
+    const apply = ({ wx, city }) => {
+      if (cancelled) return
+      setWx(wx); setCity(city); setLoading(false)
+    }
+    const fallbackToIP = () => {
+      _stripByIP().then(apply).catch(() => { if (!cancelled) setLoading(false) })
+    }
+
+    let settled = false
+    const done = (r) => { if (!settled) { settled = true; apply(r) } }
+    const timer = setTimeout(() => { if (!settled) { settled = true; fallbackToIP() } }, 5000)
+
+    if (!navigator.geolocation) { clearTimeout(timer); fallbackToIP(); return }
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        clearTimeout(timer)
+        try { done(await _stripByCoords(coords.latitude, coords.longitude)) }
+        catch { if (!settled) { settled = true; fallbackToIP() } }
+      },
+      () => { clearTimeout(timer); if (!settled) { settled = true; fallbackToIP() } },
+      { timeout: 5000, maximumAge: 300000 }
+    )
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [])
 
   if (loading || !wx) return null

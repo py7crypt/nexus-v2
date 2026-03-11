@@ -237,43 +237,68 @@ const WX_DESC = {
   80:'Showers',81:'Rain showers',82:'Violent showers',95:'Thunderstorm',96:'Thunderstorm',99:'Thunderstorm',
 }
 
+async function _fetchWeatherByCoords(lat, lon) {
+  const [geo, w] = await Promise.all([
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`).then(r=>r.json()),
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto`).then(r=>r.json()),
+  ])
+  const city = geo.address?.city || geo.address?.town || geo.address?.village || geo.address?.county || ''
+  return { wx: w.current, city }
+}
+
+async function _fetchWeatherByIP() {
+  // ip-api.com: free, no key, returns lat/lon from IP
+  const ip = await fetch('https://ip-api.com/json/?fields=lat,lon,city').then(r=>r.json())
+  if (!ip.lat) throw new Error('IP geo failed')
+  const w = await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${ip.lat}&longitude=${ip.lon}&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto`
+  ).then(r=>r.json())
+  return { wx: w.current, city: ip.city || '' }
+}
+
 export function WeatherCard({ compact = false }) {
-  const [wx,    setWx]    = useState(null)
-  const [city,  setCity]  = useState('')
-  const [err,   setErr]   = useState(false)
+  const [wx,      setWx]   = useState(null)
+  const [city,    setCity] = useState('')
+  const [loading, setLoad] = useState(true)
 
   useEffect(() => {
-    if (!navigator.geolocation) { setErr(true); return }
-    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-      const { latitude: lat, longitude: lon } = coords
-      try {
-        // Reverse geocode city name
-        const geo = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
-        ).then(r => r.json())
-        const c = geo.address?.city || geo.address?.town || geo.address?.village || geo.address?.county || ''
-        setCity(c)
+    let cancelled = false
+    const apply = ({ wx, city }) => {
+      if (cancelled) return
+      setWx(wx); setCity(city); setLoad(false)
+    }
+    const fail = () => {
+      if (cancelled) return
+      // Fallback to IP-based location
+      _fetchWeatherByIP().then(apply).catch(() => { if (!cancelled) setLoad(false) })
+    }
 
-        // Fetch weather from Open-Meteo (free, no key)
-        const w = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-          `&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m` +
-          `&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto`
-        ).then(r => r.json())
-        setWx(w.current)
-      } catch { setErr(true) }
-    }, () => setErr(true), { timeout: 8000 })
+    if (!navigator.geolocation) { fail(); return }
+
+    // Race geolocation against a 5s timeout — whichever wins
+    let settled = false
+    const done = (result) => { if (!settled) { settled = true; apply(result) } }
+    const fallback = setTimeout(() => { if (!settled) { settled = true; fail() } }, 5000)
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        clearTimeout(fallback)
+        try { done(await _fetchWeatherByCoords(coords.latitude, coords.longitude)) }
+        catch { if (!settled) { settled = true; fail() } }
+      },
+      () => { clearTimeout(fallback); if (!settled) { settled = true; fail() } },
+      { timeout: 5000, maximumAge: 300000 }
+    )
+    return () => { cancelled = true; clearTimeout(fallback) }
   }, [])
 
-  if (err || (!wx && !city)) return null  // hide silently if no permission
-  if (!wx) return (
-    <div className={compact ? '' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5'}>
-      <div className="flex items-center gap-2 text-sm text-slate-400">
-        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
-        Loading weather...
-      </div>
+  if (loading) return (
+    <div className={compact ? 'flex items-center gap-2 text-sm text-slate-400' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5'}>
+      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0"/>
+      {!compact && <span className="text-sm text-slate-400 ml-2">Loading weather...</span>}
     </div>
   )
+  if (!wx) return null
 
   const code  = wx.weathercode
   const icon  = WX_CODES[code] || '🌡️'
