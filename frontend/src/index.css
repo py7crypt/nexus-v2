@@ -90,10 +90,5 @@
   }
 }
 
-/* Quill dark mode */
-.dark .ql-toolbar.ql-snow  { background: #1e293b; border-color: #334155; }
-.dark .ql-container.ql-snow{ background: #1e293b; border-color: #334155; color: #f1f5f9; }
-.dark .ql-toolbar.ql-snow .ql-stroke { stroke: #94a3b8; }
-.dark .ql-toolbar.ql-snow .ql-fill   { fill: #94a3b8; }
-.dark .ql-picker-label { color: #94a3b8; }
+/* Quill editor sizing */
 .ql-container.ql-snow { min-height: 280px; font-family: 'Poppins', sans-serif; font-size: 15px; }
