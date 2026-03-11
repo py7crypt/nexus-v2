@@ -21,8 +21,11 @@ async def _get():
                 return data
             # Migrate old flat dict format
             if isinstance(data, dict):
+                ICONS = {"twitter":"𝕏","facebook":"📘","instagram":"📸","linkedin":"💼",
+                         "youtube":"▶️","tiktok":"🎵"}
                 return [
-                    {"id": k, "platform": k, "label": k.capitalize(), "url": v}
+                    {"id": k, "platform": k, "label": k.capitalize(),
+                     "icon": ICONS.get(k, "🔗"), "url": v}
                     for k, v in data.items() if v
                 ]
         except Exception:
@@ -63,6 +66,7 @@ class handler(BaseHTTPRequestHandler):
                     "id":       str(item.get("id", "")).strip(),
                     "platform": str(item.get("platform", "custom")).strip().lower(),
                     "label":    str(item.get("label", "")).strip(),
+                    "icon":     str(item.get("icon", "🔗")).strip(),
                     "url":      str(item.get("url", "")).strip(),
                 })
         _run(kv_set(KV_KEY, json.dumps(cleaned)))

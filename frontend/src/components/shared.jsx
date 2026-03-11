@@ -222,3 +222,99 @@ export function SEOScore({ title, content, seoTitle, seoDesc, tags, coverImage }
 export function CatBadge({ category, size = 'sm' }) {
   return <CatTag category={category} size={size} />
 }
+
+// ── Weather Card ──────────────────────────────────────────────
+const WX_CODES = {
+  0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',
+  51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',
+  71:'🌨️',73:'🌨️',75:'❄️',80:'🌦️',81:'🌧️',82:'⛈️',
+  95:'⛈️',96:'⛈️',99:'⛈️',
+}
+const WX_DESC = {
+  0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',
+  45:'Foggy',48:'Icy fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',
+  61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',
+  80:'Showers',81:'Rain showers',82:'Violent showers',95:'Thunderstorm',96:'Thunderstorm',99:'Thunderstorm',
+}
+
+export function WeatherCard({ compact = false }) {
+  const [wx,    setWx]    = useState(null)
+  const [city,  setCity]  = useState('')
+  const [err,   setErr]   = useState(false)
+
+  useEffect(() => {
+    if (!navigator.geolocation) { setErr(true); return }
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      const { latitude: lat, longitude: lon } = coords
+      try {
+        // Reverse geocode city name
+        const geo = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+        ).then(r => r.json())
+        const c = geo.address?.city || geo.address?.town || geo.address?.village || geo.address?.county || ''
+        setCity(c)
+
+        // Fetch weather from Open-Meteo (free, no key)
+        const w = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+          `&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m` +
+          `&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto`
+        ).then(r => r.json())
+        setWx(w.current)
+      } catch { setErr(true) }
+    }, () => setErr(true), { timeout: 8000 })
+  }, [])
+
+  if (err || (!wx && !city)) return null  // hide silently if no permission
+  if (!wx) return (
+    <div className={compact ? '' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5'}>
+      <div className="flex items-center gap-2 text-sm text-slate-400">
+        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+        Loading weather...
+      </div>
+    </div>
+  )
+
+  const code  = wx.weathercode
+  const icon  = WX_CODES[code] || '🌡️'
+  const desc  = WX_DESC[code]  || 'Unknown'
+  const temp  = Math.round(wx.temperature_2m)
+  const wind  = Math.round(wx.windspeed_10m)
+  const humid = wx.relativehumidity_2m
+
+  if (compact) return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="text-2xl">{icon}</span>
+      <div>
+        <span className="font-bold text-slate-800 dark:text-white">{temp}°C</span>
+        <span className="text-slate-500 dark:text-slate-400 ml-1">{city}</span>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 overflow-hidden relative">
+      <div className="absolute top-0 right-0 text-8xl opacity-10 pointer-events-none leading-none mt-1 mr-1">{icon}</div>
+      <h3 className="text-xs font-bold uppercase tracking-wider border-b-2 border-blue-500 pb-2 mb-4">
+        🌤️ Weather {city && <span className="normal-case font-normal text-slate-400 ml-1">— {city}</span>}
+      </h3>
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-4xl">{icon}</span>
+        <div>
+          <div className="text-3xl font-black text-slate-800 dark:text-white">{temp}°C</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">{desc}</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2.5">
+          <div className="text-slate-400 mb-0.5">Wind</div>
+          <div className="font-bold text-slate-700 dark:text-slate-200">💨 {wind} km/h</div>
+        </div>
+        <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2.5">
+          <div className="text-slate-400 mb-0.5">Humidity</div>
+          <div className="font-bold text-slate-700 dark:text-slate-200">💧 {humid}%</div>
+        </div>
+      </div>
+    </div>
+  )
+}

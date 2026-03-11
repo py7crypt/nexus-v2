@@ -14,6 +14,79 @@ const PLACEHOLDER = [
   { id:'p5', title:"Japan's Hidden Prefectures: Beyond Tokyo and Kyoto", category:'Travel', author:'Yuki Tanaka', cover_image:'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=600&q=80', excerpt:'Venture off the beaten path to discover stunning regions most tourists never see.', created_at: new Date().toISOString() },
 ]
 
+// MSN-style weather strip for the top of the homepage
+const WX_CODES = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',80:'🌦️',81:'🌧️',82:'⛈️',95:'⛈️',99:'⛈️'}
+const WX_DESC = {0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Foggy',51:'Drizzle',53:'Drizzle',55:'Heavy drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',80:'Showers',81:'Rain showers',82:'Violent showers',95:'Thunderstorm',99:'Thunderstorm'}
+
+function WeatherStrip() {
+  const [wx,   setWx]   = useState(null)
+  const [city, setCity] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!navigator.geolocation) { setLoading(false); return }
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      const { latitude: lat, longitude: lon } = coords
+      try {
+        const [geo, w] = await Promise.all([
+          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`).then(r=>r.json()),
+          fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m,apparent_temperature&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto`).then(r=>r.json()),
+        ])
+        setCity(geo.address?.city || geo.address?.town || geo.address?.village || geo.address?.county || '')
+        setWx(w.current)
+      } catch { /* silent */ }
+      finally { setLoading(false) }
+    }, () => setLoading(false), { timeout: 8000 })
+  }, [])
+
+  if (loading || !wx) return null
+
+  const icon    = WX_CODES[wx.weathercode] || '🌡️'
+  const desc    = WX_DESC[wx.weathercode]  || ''
+  const temp    = Math.round(wx.temperature_2m)
+  const feels   = Math.round(wx.apparent_temperature)
+  const wind    = Math.round(wx.windspeed_10m)
+  const humid   = wx.relativehumidity_2m
+  const now     = new Date()
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const dateStr = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+
+  return (
+    <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-2xl px-6 py-4 mb-8 flex flex-wrap items-center gap-6 shadow-lg">
+      {/* Main temp */}
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="text-5xl leading-none">{icon}</span>
+        <div>
+          <div className="text-4xl font-black leading-none">{temp}°</div>
+          <div className="text-blue-100 text-sm font-medium mt-0.5">{desc}</div>
+        </div>
+      </div>
+
+      {/* Location + time */}
+      <div className="flex-1 min-w-0">
+        {city && <div className="text-xl font-bold truncate">📍 {city}</div>}
+        <div className="text-blue-200 text-sm">{dateStr} · {timeStr}</div>
+      </div>
+
+      {/* Stats */}
+      <div className="flex gap-4 text-sm flex-wrap">
+        <div className="text-center">
+          <div className="text-blue-200 text-xs">Feels like</div>
+          <div className="font-bold">{feels}°C</div>
+        </div>
+        <div className="text-center">
+          <div className="text-blue-200 text-xs">Wind</div>
+          <div className="font-bold">💨 {wind} km/h</div>
+        </div>
+        <div className="text-center">
+          <div className="text-blue-200 text-xs">Humidity</div>
+          <div className="font-bold">💧 {humid}%</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function HomePage() {
   const [cats, setCats] = useState(getCategories())
 
@@ -35,6 +108,9 @@ export default function HomePage() {
 
   return (
     <div className="max-w-[1280px] mx-auto px-5 py-8">
+      {/* ── Weather Strip (MSN-style) ── */}
+      <WeatherStrip />
+
       {/* ── Hero Grid ── */}
       <section className="mb-10">
         {isLoading

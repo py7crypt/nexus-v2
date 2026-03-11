@@ -94,23 +94,21 @@ export default function ArticleEditor() {
   }, []) // run once only
 
   // ── Fill form + Quill when article data arrives ───────────────────────
+  // Polls until Quill is mounted — fixes race condition on hard reload
   useEffect(() => {
     if (!article || filledRef.current) return
-    if (!quillRef.current) return
-    filledRef.current = true
-    _fillEditor(article)
-  }, [article])
-
-  // Retry fill after short delay if Quill wasn't ready on first run
-  useEffect(() => {
-    if (!article || filledRef.current) return
-    const t = setTimeout(() => {
-      if (filledRef.current || !quillRef.current) return
+    let tries = 0
+    const attempt = () => {
+      if (filledRef.current) return          // already filled by another run
+      if (!quillRef.current) {
+        if (++tries < 30) setTimeout(attempt, 100)  // retry up to 3s
+        return
+      }
       filledRef.current = true
       _fillEditor(article)
-    }, 200)
-    return () => clearTimeout(t)
-  }, [article])
+    }
+    attempt()
+  }, [article])  // re-runs whenever article reference changes
 
   function _fillEditor(a) {
     setForm({

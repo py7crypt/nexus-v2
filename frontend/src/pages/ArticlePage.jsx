@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchArticle, fetchArticles } from '../api'
-import { Spinner, LikeButton } from '../components/shared'
+import { Spinner, LikeButton, WeatherCard } from '../components/shared'
 import { formatDate, catColor } from '../utils'
 
 export default function ArticlePage() {
@@ -175,6 +175,9 @@ export default function ArticlePage() {
               ))}
             </div>
           </div>
+
+          {/* Weather Card */}
+          <WeatherCard />
         </aside>
       </div>
     </div>

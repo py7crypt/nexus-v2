@@ -4,13 +4,11 @@ import { useApp } from '../context/AppContext'
 import { useState } from 'react'
 
 const NAV = [
-  { to: '/admin',           label: 'Dashboard',    icon: '📊', end: true },
-  { to: '/admin/articles',  label: 'All Articles', icon: '📰' },
-  { to: '/admin/articles/new', label: 'New Article', icon: '✏️' },
-  { to: '/admin/ai',        label: 'AI Generator', icon: '🤖', badge: 'AI' },
-  { to: '/admin/categories',label: 'Categories',   icon: '🏷️' },
-  { to: '/admin/social',    label: 'Social Media', icon: '📱' },
-  { to: '/admin/settings',  label: 'Settings',     icon: '⚙️' },
+  { to: '/admin',            label: 'Dashboard',    icon: '📊', end: true },
+  { to: '/admin/ai',         label: 'AI Generator', icon: '🤖', badge: 'AI' },
+  { to: '/admin/categories', label: 'Categories',   icon: '🏷️' },
+  { to: '/admin/social',     label: 'Social Media', icon: '📱' },
+  { to: '/admin/settings',   label: 'Settings',     icon: '⚙️' },
 ]
 
 export default function AdminLayout() {
