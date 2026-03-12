@@ -6,21 +6,31 @@ import { fetchScrapeSettings, saveScrapeSettings } from '../../api'
 const CATEGORIES = ['', 'Technology', 'Science', 'Business', 'Health', 'Politics', 'Sports', 'Entertainment', 'Travel', 'Culture']
 
 const PRESETS = [
-  { name: 'Google News',    rss_url: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en',        category: '' },
-  { name: 'BBC News',       rss_url: 'http://feeds.bbci.co.uk/news/rss.xml',                         category: '' },
-  { name: 'Reuters',        rss_url: 'https://feeds.reuters.com/reuters/topNews',                     category: '' },
-  { name: 'TechCrunch',     rss_url: 'https://techcrunch.com/feed/',                                 category: 'Technology' },
-  { name: 'The Verge',      rss_url: 'https://www.theverge.com/rss/index.xml',                       category: 'Technology' },
-  { name: 'Ars Technica',   rss_url: 'http://feeds.arstechnica.com/arstechnica/index',               category: 'Technology' },
-  { name: 'Wired',          rss_url: 'https://www.wired.com/feed/rss',                               category: 'Technology' },
-  { name: 'ESPN',           rss_url: 'https://www.espn.com/espn/rss/news',                           category: 'Sports' },
-  { name: 'Sky Sports',     rss_url: 'https://www.skysports.com/rss/12040',                          category: 'Sports' },
-  { name: 'NYT Health',     rss_url: 'https://rss.nytimes.com/services/xml/rss/nyt/Health.xml',      category: 'Health' },
-  { name: 'Scientific American', rss_url: 'http://rss.sciam.com/ScientificAmerican-Global',          category: 'Science' },
-  { name: 'Nature',         rss_url: 'https://www.nature.com/nature.rss',                            category: 'Science' },
-  { name: 'Al Jazeera',     rss_url: 'https://www.aljazeera.com/xml/rss/all.xml',                    category: 'Politics' },
-  { name: 'Guardian World', rss_url: 'https://www.theguardian.com/world/rss',                        category: '' },
-  { name: 'Variety',        rss_url: 'https://variety.com/feed/',                                    category: 'Entertainment' },
+  // General / World
+  { name: 'BBC News',          rss_url: 'https://feeds.bbci.co.uk/news/rss.xml',                                               category: '' },
+  { name: 'Reuters',           rss_url: 'https://feeds.reuters.com/reuters/topNews',                                            category: '' },
+  { name: 'AP News',           rss_url: 'https://feeds.apnews.com/apnews/topnews',                                              category: '' },
+  { name: 'Al Jazeera',        rss_url: 'https://www.aljazeera.com/xml/rss/all.xml',                                           category: '' },
+  { name: 'The Guardian',      rss_url: 'https://www.theguardian.com/world/rss',                                               category: '' },
+  // Technology
+  { name: 'TechCrunch',        rss_url: 'https://techcrunch.com/feed/',                                                        category: 'Technology' },
+  { name: 'The Verge',         rss_url: 'https://www.theverge.com/rss/index.xml',                                              category: 'Technology' },
+  { name: 'Wired',             rss_url: 'https://www.wired.com/feed/rss',                                                      category: 'Technology' },
+  { name: 'Ars Technica',      rss_url: 'https://feeds.arstechnica.com/arstechnica/index',                                     category: 'Technology' },
+  // Science
+  { name: 'NASA',              rss_url: 'https://www.nasa.gov/rss/dyn/breaking_news.rss',                                      category: 'Science' },
+  { name: 'Scientific American',rss_url: 'https://www.scientificamerican.com/platform/morgue/rss/sciam-news-feed.xml',         category: 'Science' },
+  { name: 'Nature',            rss_url: 'https://www.nature.com/nature.rss',                                                   category: 'Science' },
+  // Business
+  { name: 'BBC Business',      rss_url: 'https://feeds.bbci.co.uk/news/business/rss.xml',                                      category: 'Business' },
+  // Sports
+  { name: 'BBC Sport',         rss_url: 'https://feeds.bbci.co.uk/sport/rss.xml',                                              category: 'Sports' },
+  { name: 'ESPN',              rss_url: 'https://www.espn.com/espn/rss/news',                                                  category: 'Sports' },
+  // Entertainment
+  { name: 'Variety',           rss_url: 'https://variety.com/feed/',                                                           category: 'Entertainment' },
+  // Health
+  { name: 'BBC Health',        rss_url: 'https://feeds.bbci.co.uk/news/health/rss.xml',                                        category: 'Health' },
+  { name: 'WHO News',          rss_url: 'https://www.who.int/rss-feeds/news-english.xml',                                      category: 'Health' },
 ]
 
 const DEFAULT_SETTINGS = {
