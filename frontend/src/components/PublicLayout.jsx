@@ -7,36 +7,26 @@ import { fetchArticles } from '../api'
 
 export default function PublicLayout() {
   const { dark, toggleDark } = useApp()
-  const [scrolled, setScrolled] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [searchOpen, setSearch] = useState(false)
-  const [query, setQuery] = useState('')
-  const [cats, setCats]     = useState(getCategories())
+  const [menuOpen,       setMenuOpen]       = useState(false)
+  const [searchOpen,     setSearchOpen]     = useState(false)
+  const [query,          setQuery]          = useState('')
+  const [cats,           setCats]           = useState(getCategories())
   const [tickerArticles, setTickerArticles] = useState([])
   const [socialLinks,    setSocialLinks]    = useState([])
+  const navigate = useNavigate()
 
   useEffect(() => {
-    fetch('/api/social')
-      .then(r => r.json())
+    fetch('/api/social').then(r => r.json())
       .then(d => { if (d.success && Array.isArray(d.links)) setSocialLinks(d.links) })
       .catch(() => {})
   }, [])
 
-  // Fetch last 10 published articles for breaking news ticker
   useEffect(() => {
     fetchArticles({ limit: 10 })
       .then(d => { if (d.articles?.length) setTickerArticles(d.articles) })
       .catch(() => {})
   }, [])
-  const navigate = useNavigate()
 
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 60)
-    window.addEventListener('scroll', fn, { passive: true })
-    return () => window.removeEventListener('scroll', fn)
-  }, [])
-
-  // Keep categories in sync with localStorage changes
   useEffect(() => {
     const sync = () => setCats(getCategories())
     window.addEventListener('storage', sync)
@@ -46,69 +36,93 @@ export default function PublicLayout() {
 
   const handleSearch = (e) => {
     e.preventDefault()
-    if (query.trim()) { navigate(`/?q=${encodeURIComponent(query.trim())}`); setSearch(false) }
+    if (query.trim()) { navigate(`/?q=${encodeURIComponent(query.trim())}`); setSearchOpen(false); setQuery('') }
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className={`sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-shadow ${scrolled ? 'shadow-md' : 'shadow-sm'}`}>
-        <div className="max-w-[1280px] mx-auto px-5 h-16 flex items-center gap-5">
-          <Link to="/" className="font-display text-2xl font-black tracking-tight flex-shrink-0">
-            NEX<span className="text-blue-600">US</span>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+
+      {/* ── TOP NAV ─────────────────────────────────────────────────────── */}
+      <header className="nexus-header sticky top-0 z-50">
+        <div className="nexus-container h-16 flex items-center gap-4">
+
+          {/* Logo */}
+          <Link to="/" className="nexus-logo flex-shrink-0">
+            NEX<span>US</span>
           </Link>
-          <nav className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto scrollbar-none">
-            <NavLink to="/" end className={({isActive}) => `text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${isActive ? 'text-blue-600 bg-blue-50 dark:bg-blue-950' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-              Home
-            </NavLink>
+
+          {/* Desktop nav */}
+          <nav className="hidden lg:flex items-center gap-0.5 flex-1 overflow-x-auto scrollbar-none">
+            <NavLink to="/" end className={({isActive}) => `nexus-nav-link ${isActive ? 'active' : ''}`}>Home</NavLink>
             {cats.map(cat => (
               <NavLink key={cat.name} to={`/category/${cat.name.toLowerCase()}`}
-                className={({isActive}) => `text-xs font-semibold px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${isActive ? 'text-blue-600 bg-blue-50 dark:bg-blue-950' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                {cat.icon} {cat.name}
+                className={({isActive}) => `nexus-nav-link ${isActive ? 'active' : ''}`}>
+                {cat.name}
               </NavLink>
             ))}
           </nav>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => setSearch(s => !s)} className="p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">🔍</button>
-            <button onClick={toggleDark} className="p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">{dark ? '☀️' : '🌙'}</button>
-            <button className="lg:hidden p-2 rounded-lg text-slate-500" onClick={() => setMenuOpen(o => !o)}>☰</button>
+
+          {/* Right controls */}
+          <div className="flex items-center gap-1 flex-shrink-0 ml-auto lg:ml-0">
+            <button onClick={() => setSearchOpen(s => !s)} className="nexus-icon-btn" title="Search">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+            </button>
+            <button onClick={toggleDark} className="nexus-icon-btn" title="Toggle theme">
+              {dark
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              }
+            </button>
+            <button className="lg:hidden nexus-icon-btn" onClick={() => setMenuOpen(o => !o)}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {menuOpen ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></> : <><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></>}
+              </svg>
+            </button>
           </div>
         </div>
 
+        {/* Mobile menu */}
         {menuOpen && (
-          <div className="lg:hidden bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-5 py-3 flex flex-col gap-1">
-            <Link to="/" onClick={() => setMenuOpen(false)} className="py-2 px-3 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-blue-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Home</Link>
+          <div className="lg:hidden nexus-mobile-menu">
+            <Link to="/" onClick={() => setMenuOpen(false)} className="nexus-mobile-link">Home</Link>
             {cats.map(c => (
-              <Link key={c.name} to={`/category/${c.name.toLowerCase()}`} onClick={() => setMenuOpen(false)}
-                className="py-2 px-3 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-blue-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+              <Link key={c.name} to={`/category/${c.name.toLowerCase()}`} onClick={() => setMenuOpen(false)} className="nexus-mobile-link">
+                <span className="w-2 h-2 rounded-full inline-block mr-2" style={{ background: c.color }}/>
                 {c.icon} {c.name}
               </Link>
             ))}
           </div>
         )}
 
+        {/* Search bar */}
         {searchOpen && (
-          <div className="bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-5 py-3">
-            <form onSubmit={handleSearch} className="max-w-xl mx-auto flex gap-2">
-              <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
-                className="form-input" placeholder="Search articles, topics..."/>
-              <button type="button" onClick={() => setSearch(false)} className="px-3 text-slate-400 hover:text-slate-600">✕</button>
+          <div className="nexus-search-bar">
+            <form onSubmit={handleSearch} className="nexus-container flex gap-3 py-3">
+              <div className="relative flex-1">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
+                  className="w-full bg-white/10 border border-white/20 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:border-blue-400"
+                  placeholder="Search articles, topics, authors..."/>
+              </div>
+              <button type="submit" className="nexus-btn-primary text-sm px-5">Search</button>
+              <button type="button" onClick={() => setSearchOpen(false)} className="nexus-icon-btn text-white/70 hover:text-white">✕</button>
             </form>
           </div>
         )}
       </header>
 
+      {/* ── BREAKING NEWS TICKER ────────────────────────────────────────── */}
       {tickerArticles.length > 0 && (
-        <div className="bg-blue-600 text-white flex items-center h-9 overflow-hidden">
-          <span className="bg-black/20 px-4 h-full flex items-center text-xs font-bold tracking-widest flex-shrink-0 border-r border-white/20">BREAKING</span>
+        <div className="nexus-ticker">
+          <span className="nexus-ticker-label">BREAKING</span>
           <div className="overflow-hidden flex-1">
-            <span className="ticker-scroll inline-block whitespace-nowrap text-xs font-medium py-2">
+            <span className="ticker-scroll inline-block whitespace-nowrap text-xs font-medium">
               {[...tickerArticles, ...tickerArticles].map((a, i) => (
                 <span key={i}>
-                  <Link to={`/article/${a.id}`}
-                    className="hover:underline hover:text-blue-200 transition-colors cursor-pointer">
-                    {a.title}
-                  </Link>
-                  <span className="mx-4 opacity-60">•</span>
+                  <Link to={`/article/${a.id}`} className="hover:text-blue-300 transition-colors">{a.title}</Link>
+                  <span className="mx-5 opacity-40">◆</span>
                 </span>
               ))}
             </span>
@@ -118,48 +132,59 @@ export default function PublicLayout() {
 
       <main className="flex-1"><Outlet /></main>
 
-      <footer className="bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800 mt-16">
-        <div className="max-w-[1280px] mx-auto px-5 py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
+      {/* ── FOOTER ──────────────────────────────────────────────────────── */}
+      <footer className="nexus-footer">
+        <div className="nexus-container py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
           <div>
-            <div className="font-display text-2xl font-black mb-3">NEX<span className="text-blue-600">US</span></div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">A modern digital media platform covering technology, science, business, health, and culture.</p>
+            <div className="nexus-logo text-2xl mb-4">NEX<span>US</span></div>
+            <p className="text-sm text-slate-400 leading-relaxed">A modern digital media platform covering technology, science, business, health, and culture.</p>
+            {socialLinks.length > 0 && (
+              <div className="flex gap-2 mt-5 flex-wrap">
+                {socialLinks.map(l => (
+                  <a key={l.id} href={l.url || '#'} target="_blank" rel="noreferrer" title={l.label}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 hover:border-blue-500 hover:bg-blue-500/10 transition-all bg-white/5 overflow-hidden p-1.5">
+                    {l.icon
+                      ? <img src={l.icon} alt={l.label} className="w-full h-full object-contain"/>
+                      : <span className="text-slate-400 text-xs font-bold">{l.label?.[0]?.toUpperCase() || '?'}</span>
+                    }
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
           <div>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-4">Categories</h4>
+            <h4 className="nexus-footer-heading">Categories</h4>
             <ul className="space-y-2">
               {cats.map(c => (
-                <li key={c.name}><Link to={`/category/${c.name.toLowerCase()}`} className="text-sm text-slate-500 hover:text-blue-600 transition-colors">{c.icon} {c.name}</Link></li>
+                <li key={c.name}>
+                  <Link to={`/category/${c.name.toLowerCase()}`} className="text-sm text-slate-400 hover:text-blue-400 transition-colors flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.color }}/>
+                    {c.name}
+                  </Link>
+                </li>
               ))}
             </ul>
           </div>
           <div>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-4">Resources</h4>
-            <ul className="space-y-2 text-sm text-slate-500">
-              {['About NEXUS','Editorial Policy','Write for Us','Advertise','Careers','Contact'].map(i => (
-                <li key={i}><a href="#" className="hover:text-blue-600 transition-colors">{i}</a></li>
+            <h4 className="nexus-footer-heading">Resources</h4>
+            <ul className="space-y-2">
+              {['About NEXUS', 'Editorial Policy', 'Write for Us', 'Advertise', 'Careers', 'Contact'].map(i => (
+                <li key={i}><a href="#" className="text-sm text-slate-400 hover:text-blue-400 transition-colors">{i}</a></li>
               ))}
             </ul>
           </div>
           <div>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-4">Follow Us</h4>
-            <div className="flex gap-2 flex-wrap">
-              {socialLinks.map(l => (
-                <a key={l.id} href={l.url || '#'} target="_blank" rel="noreferrer"
-                  title={l.label}
-                  className="w-9 h-9 flex items-center justify-center border border-slate-200 dark:border-slate-700 rounded-lg hover:border-blue-600 hover:shadow-md transition-all overflow-hidden bg-white dark:bg-slate-800 p-1.5">
-                  {l.icon
-                    ? <img src={l.icon} alt={l.label} className="w-full h-full object-contain"/>
-                    : <span className="text-slate-400 text-xs font-bold">{l.label?.[0]?.toUpperCase()||'?'}</span>
-                  }
-                </a>
-              ))}
-            </div>
+            <h4 className="nexus-footer-heading">Newsletter</h4>
+            <p className="text-sm text-slate-400 mb-4">Get top stories delivered every morning.</p>
+            <input type="email" placeholder="your@email.com"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 mb-3"/>
+            <button className="nexus-btn-primary w-full text-sm py-2.5">Subscribe Free</button>
           </div>
         </div>
-        <div className="border-t border-slate-200 dark:border-slate-800 py-5">
-          <div className="max-w-[1280px] mx-auto px-5 flex justify-between items-center text-xs text-slate-400">
+        <div className="border-t border-white/5 py-5">
+          <div className="nexus-container flex justify-between items-center text-xs text-slate-500">
             <span>© 2025 NEXUS Media. All rights reserved.</span>
-            <div className="flex gap-4">{['Privacy','Terms','Cookies'].map(l => <a key={l} href="#" className="hover:text-blue-600">{l}</a>)}</div>
+            <div className="flex gap-5">{['Privacy', 'Terms', 'Cookies'].map(l => <a key={l} href="#" className="hover:text-blue-400 transition-colors">{l}</a>)}</div>
           </div>
         </div>
       </footer>
