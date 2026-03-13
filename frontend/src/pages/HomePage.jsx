@@ -168,7 +168,7 @@ function GridCard({ article, variant = 'default' }) {
       </div>
       <div className="p-3 flex flex-col flex-1">
         <h3 className={`font-semibold leading-snug line-clamp-2 group-hover:text-blue-500 transition-colors ${isLarge ? 'text-sm' : 'text-xs'}`}
-          style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+          style={{ color: 'var(--text-primary)' }}>
           {article.title}
         </h3>
         {isLarge && article.excerpt && (
@@ -196,7 +196,7 @@ function TrendingItem({ article, rank }) {
           {article.category}
         </span>
         <h5 className="text-xs font-semibold line-clamp-2 leading-snug mt-0.5 group-hover:text-blue-500 transition-colors"
-          style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+          style={{ color: 'var(--text-primary)' }}>
           {article.title}
         </h5>
         <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>
@@ -234,17 +234,19 @@ export default function HomePage() {
     <div className="nexus-home">
       <div className="nexus-container py-6">
 
-        {/* ── HERO SLIDER ──────────────────────────────────────────────── */}
-        <section className="mb-8">
+        {/* ── HERO + RIGHT SIDEBAR side-by-side ─────────────────────── */}
+        <section className="grid lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_320px] gap-6 mb-8 items-start">
           <HeroSlider articles={articles}/>
+          <RightSidebar variant="home"/>
         </section>
 
-        {/* ── LATEST + RIGHT SIDEBAR ──────────────────────────────────── */}
-        <div className="grid lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_320px] gap-8">
+        {/* ── LATEST ARTICLES ──────────────────────────────────────────── */}
 
           {/* Main content */}
-          <div>
+        <div>
             {/* Latest articles grid */}
+        {/* ── LATEST ARTICLES ──────────────────────────────────────────── */}
+          <div>
             <div className="nexus-section-header mb-5">
               <h2 className="nexus-section-title">
                 <span className="nexus-section-accent"/>
@@ -255,11 +257,9 @@ export default function HomePage() {
               {latest.map((a, i) => <GridCard key={a.id} article={a} variant={i === 0 ? 'large' : 'default'}/>)}
             </div>
           </div>
-
-          <RightSidebar variant="home"/>
+          <RightSidebar variant="home" />
         </div>
-
       </div>
-    </div>
+  </div>
   )
 }

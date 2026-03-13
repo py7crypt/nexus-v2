@@ -24,28 +24,35 @@ function SidebarCard({ header, children, className = '' }) {
 
 function TrendingItem({ article, rank }) {
   if (!article) return null
+  const accent = catColor(article.category)
+  const isTop3 = rank <= 3
   return (
-    <Link to={`/article/${article.id}`}
-      className="nexus-trending-item group flex items-start gap-2 py-2 px-2 rounded-lg"
-      style={{ textDecoration: 'none' }}>
-      <span className="nexus-trending-rank flex-shrink-0">{String(rank).padStart(2,'0')}</span>
-      <div className="flex-1 min-w-0">
-        <span className="block text-[10px] font-bold uppercase tracking-wider" style={{ color: catColor(article.category) }}>
-          {article.category}
-        </span>
-        <h5 className="text-xs font-semibold line-clamp-2 leading-snug mt-0.5 group-hover:text-blue-500 transition-colors"
-          style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-          {article.title}
-        </h5>
-        <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>
-          {timeAgo(article.created_at)}
-        </span>
-      </div>
-      {article.cover_image && (
-        <div className="w-11 h-9 rounded-lg overflow-hidden flex-shrink-0">
-          <img src={article.cover_image} alt="" className="w-full h-full object-cover"/>
+    <Link to={`/article/${article.id}`} className="trending-card group block" style={{ textDecoration: 'none' }}>
+      <div className="flex gap-3 items-start">
+        {/* Rank badge */}
+        <div className="trending-rank-badge flex-shrink-0" style={{ '--rank-color': isTop3 ? accent : 'var(--border-strong)' }}>
+          <span className="trending-rank-num">{rank}</span>
+          {isTop3 && <div className="trending-rank-glow" style={{ background: accent }}/>}
         </div>
-      )}
+        {/* Thumb */}
+        {article.cover_image && (
+          <div className="w-14 h-12 rounded-lg overflow-hidden flex-shrink-0">
+            <img src={article.cover_image} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
+          </div>
+        )}
+        {/* Text */}
+        <div className="flex-1 min-w-0">
+          <span className="trending-cat-badge" style={{ color: accent, borderColor: accent + '44', background: accent + '14' }}>
+            {article.category}
+          </span>
+          <h5 className="font-display text-xs font-bold line-clamp-2 leading-snug mt-1 group-hover:text-primary transition-colors" style={{ color: 'var(--text-primary)' }}>
+            {article.title}
+          </h5>
+          <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>
+            {timeAgo(article.created_at)}
+          </span>
+        </div>
+      </div>
     </Link>
   )
 }
@@ -92,7 +99,7 @@ function ShareCard({ article }) {
         </div>
         <button onClick={handleCopy}
           className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs transition-all"
-          style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-elevated)', fontFamily: 'var(--font-body)' }}
+          style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-elevated)' }}
           onMouseOver={e => { e.currentTarget.style.borderColor='var(--accent)'; e.currentTarget.style.background='var(--accent-glow)' }}
           onMouseOut={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='var(--bg-elevated)' }}>
           <span className="truncate font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{rawUrl.slice(0,38)}…</span>
@@ -116,13 +123,13 @@ function NewsletterCard() {
   return (
     <div className="nexus-newsletter-card">
       <div className="text-2xl mb-2">✉️</div>
-      <h3 className="font-black text-white text-sm mb-1" style={{ fontFamily: 'var(--font-display)' }}>Stay Informed</h3>
+      <h3 className="font-black text-white text-sm mb-1" >Stay Informed</h3>
       <p className="text-xs mb-3" style={{ color: 'rgba(147,197,253,0.75)' }}>Get NEXUS top stories every morning. No spam.</p>
       <input type="email" placeholder="Enter your email"
         className="w-full rounded-lg px-3 py-2 text-sm text-white mb-2"
-        style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', outline: 'none', fontFamily: 'var(--font-body)' }}/>
+        style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', outline: 'none' }}/>
       <button className="w-full py-2.5 bg-white rounded-lg text-sm font-bold hover:bg-blue-50 transition-colors"
-        style={{ color: 'var(--accent)', fontFamily: 'var(--font-body)' }}>
+        style={{ color: 'var(--accent)' }}>
         Subscribe Free
       </button>
     </div>
@@ -185,8 +192,8 @@ export default function RightSidebar({ variant = 'home', article = null }) {
 
       {/* 2. Trending Posts */}
       {trending.length > 0 && (
-        <SidebarCard header="Trending Posts">
-          <div className="px-1 py-1 divide-y" style={{ borderColor: 'var(--border)' }}>
+        <SidebarCard header="🔥 Trending Now">
+          <div className="p-2 space-y-1">
             {trending.slice(0, 6).map((a, i) => (
               <TrendingItem key={a.id} article={a} rank={i+1}/>
             ))}

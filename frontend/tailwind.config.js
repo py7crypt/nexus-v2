@@ -5,8 +5,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
+        // Use these via className="font-display" or className="font-body"
+        // Fonts are loaded via vite.config.js HTML injection — no @import needed
         display: ['"Playfair Display"', 'Georgia', 'serif'],
-        body:    ['Poppins', 'sans-serif'],
+        body:    ['Poppins', 'system-ui', 'sans-serif'],
       },
       colors: {
         primary: {

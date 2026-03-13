@@ -20,7 +20,7 @@ export default function AdminLayout() {
   const handleLogout = () => { logout(); navigate('/admin/login') }
 
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'var(--bg-base)', fontFamily:'var(--font-body)' }}>
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'var(--bg-base)' }}>
 
       {/* ── Sidebar ────────────────────────────────────────────────────── */}
       <aside style={{
@@ -31,12 +31,11 @@ export default function AdminLayout() {
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
         transition: 'width 0.25s ease',
-        zIndex: 40,
-      }}>
+        zIndex: 40 }}>
         {/* Logo */}
         <div style={{ height:'56px', display:'flex', alignItems:'center', padding:'0 1.25rem', borderBottom:'1px solid rgba(255,255,255,0.06)', flexShrink:0, gap:'0.6rem' }}>
-          <span style={{ fontFamily:'var(--font-display)', fontSize:'1.35rem', fontWeight:900, color:'#f1f5f9', fontStyle:'italic', whiteSpace:'nowrap' }}>
-            NEX<span style={{ color:'var(--accent)', fontStyle:'normal' }}>US</span>
+          <span style={{fontSize:'1.35rem', fontWeight:900, color:'#f1f5f9', whiteSpace:'nowrap' }}>
+            NEX<span style={{ color:'var(--accent)', }}>US</span>
           </span>
           <span style={{ fontSize:'0.58rem', fontWeight:800, background:'var(--accent)', color:'white', padding:'0.15rem 0.5rem', borderRadius:'20px', letterSpacing:'0.08em', whiteSpace:'nowrap' }}>
             ADMIN
@@ -94,8 +93,7 @@ export default function AdminLayout() {
           background:'var(--bg-surface)',
           borderBottom:'1px solid var(--border)',
           display:'flex', alignItems:'center', justifyContent:'space-between',
-          padding:'0 1.25rem', gap:'0.75rem',
-        }}>
+          padding:'0 1.25rem', gap:'0.75rem' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
             <button onClick={() => setSidebar(o => !o)}
               style={{ background:'none', border:'1px solid var(--border)', borderRadius:'8px', width:'34px', height:'34px', cursor:'pointer', color:'var(--text-secondary)', fontSize:'1.1rem', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }}
@@ -103,9 +101,9 @@ export default function AdminLayout() {
               onMouseOut={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='var(--border)' }}>
               ☰
             </button>
-            <span style={{ fontFamily:'var(--font-display)', fontSize:'0.95rem', fontWeight:700, color:'var(--text-primary)', fontStyle:'italic' }}>
-              NEX<span style={{ color:'var(--accent)', fontStyle:'normal' }}>US</span>
-              <span style={{ fontFamily:'var(--font-body)', fontSize:'0.72rem', fontWeight:600, color:'var(--text-muted)', marginLeft:'0.5rem', fontStyle:'normal' }}>CMS</span>
+            <span style={{fontSize:'0.95rem', fontWeight:700, color:'var(--text-primary)' }}>
+              NEX<span style={{ color:'var(--accent)', }}>US</span>
+              <span style={{fontSize:'0.72rem', fontWeight:600, color:'var(--text-muted)', marginLeft:'0.5rem', }}>CMS</span>
             </span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
