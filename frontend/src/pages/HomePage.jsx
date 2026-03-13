@@ -1,5 +1,5 @@
 // src/pages/HomePage.jsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { fetchArticles } from '../api'
@@ -226,11 +226,34 @@ export default function HomePage() {
   }, [])
 
 
+  const [visibleCount, setVisibleCount] = useState(6)
+  const [loadingMore, setLoadingMore]   = useState(false)
+  const loaderRef = useRef(null)
+
   const { data, isLoading } = useQuery({ queryKey: ['articles','home'], queryFn: () => fetchArticles({ limit: 30 }) })
   const articles = data?.articles?.length ? data.articles : PLACEHOLDER
 
+  // IDs used by the slider (first 6) — exclude from article cards to avoid duplicates
+  const sliderIds = new Set(articles.slice(0, 6).map(a => a.id))
+  const feedArticles = articles.filter(a => !sliderIds.has(a.id))
   const trending  = articles.slice(0, 8)
-  const latest    = articles.slice(0, 6)
+  const visibleFeed = feedArticles.slice(0, visibleCount)
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!loaderRef.current) return
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && visibleCount < feedArticles.length) {
+        setLoadingMore(true)
+        setTimeout(() => {
+          setVisibleCount(c => Math.min(c + 6, feedArticles.length))
+          setLoadingMore(false)
+        }, 500)
+      }
+    }, { threshold: 0.1 })
+    obs.observe(loaderRef.current)
+    return () => obs.disconnect()
+  }, [visibleCount, feedArticles.length])
 
   return (
     <div className="nexus-home">
@@ -246,15 +269,22 @@ export default function HomePage() {
               <HeroSlider articles={articles}/>
             </div>
 
-            {/* Latest Articles */}
-            <div className="nexus-section-header mb-4">
-              <h2 className="nexus-section-title">
-                <span className="nexus-section-accent"/>
-                Latest Articles
-              </h2>
-            </div>
+            {/* Article feed — no duplicates with slider, infinite scroll */}
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
-              {latest.map(a => <GridCard key={a.id} article={a}/>)}
+              {visibleFeed.map(a => <GridCard key={a.id} article={a}/>)}
+            </div>
+
+            {/* Infinite scroll trigger */}
+            <div ref={loaderRef} className="flex justify-center py-6 mt-2">
+              {loadingMore && (
+                <div className="flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"/>
+                  <span className="text-xs">Loading more…</span>
+                </div>
+              )}
+              {!loadingMore && visibleCount >= feedArticles.length && feedArticles.length > 0 && (
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>All articles loaded</span>
+              )}
             </div>
           </div>
 

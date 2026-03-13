@@ -72,22 +72,18 @@ export default function ArticlePage() {
           )}
 
           {/* Meta */}
-          <div className="flex flex-wrap items-center gap-4 pb-5 mb-6 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between pb-5 mb-6" style={{ borderBottom: '1px solid var(--border)' }}>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
                 style={{ background: catColor(a.category) }}>
                 {(a.author || 'N')[0].toUpperCase()}
               </div>
               <div>
-                <div className="text-sm font-semibold">{a.author}</div>
-                <div className="text-xs text-slate-400">{formatDate(a.created_at)}</div>
+                <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{a.author}</div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(a.created_at)}</div>
               </div>
             </div>
-            <div className="flex items-center gap-3 ml-auto text-xs text-slate-400">
-              <span>👁 {a.views || 0} views</span>
-              {a.tags?.length > 0 && <span>🏷 {a.tags.length} tags</span>}
-              <LikeButton articleId={a.id} />
-            </div>
+            <LikeButton articleId={a.id}/>
           </div>
 
           {/* Content — rendered exactly as written in the editor, no extra CSS */}
@@ -98,17 +94,55 @@ export default function ArticlePage() {
 
           {/* Tags */}
           {a.tags?.length > 0 && (
-            <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Tags</h4>
+            <div className="mt-8 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
+              <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Tags</h4>
               <div className="flex flex-wrap gap-2">
                 {a.tags.map(tag => (
-                  <span key={tag} className="text-xs px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full border border-slate-200 dark:border-slate-700">
+                  <span key={tag} className="text-xs px-3 py-1 rounded-full"
+                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
                     #{tag}
                   </span>
                 ))}
               </div>
             </div>
           )}
+
+          {/* More articles to read */}
+          {related?.articles?.filter(r => r.id !== a.id).length > 0 && (
+            <div className="mt-10 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
+              <h3 className="font-display text-base font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+                More to Read
+              </h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {related.articles.filter(r => r.id !== a.id).slice(0, 4).map(r => (
+                  <Link key={r.id} to={`/article/${r.id}`}
+                    className="group flex gap-3 p-3 rounded-xl transition-all"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+                    onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-glow)' }}
+                    onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)' }}>
+                    {r.cover_image && (
+                      <div className="w-20 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                        <img src={r.cover_image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: catColor(r.category) }}>
+                        {r.category}
+                      </span>
+                      <h5 className="font-display text-xs font-bold line-clamp-2 leading-snug mt-0.5 group-hover:text-blue-500 transition-colors"
+                        style={{ color: 'var(--text-primary)' }}>
+                        {r.title}
+                      </h5>
+                      <span className="text-[10px] mt-1 block" style={{ color: 'var(--text-muted)' }}>
+                        {formatDate(r.created_at)}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
         </article>
 
         <RightSidebar variant="article" article={a}/>

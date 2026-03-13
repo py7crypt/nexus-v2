@@ -1,7 +1,7 @@
 // src/components/NewsScraperModal.jsx
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { fetchScrapeSettings } from '../api'
+import { fetchScrapeSettings, fetchAllArticles } from '../api'
 import { catColor } from '../utils'
 
 const CATEGORIES = ['All','Technology','Science','Business','Health','Politics','Sports','Entertainment','Travel','Culture']
@@ -17,10 +17,27 @@ export default function NewsScraperModal({ isOpen, onFill, onClose }) {
   const [search,   setSearch]   = useState('')
   const [error,    setError]    = useState('')
 
+  const [existingUrls, setExistingUrls] = useState(new Set())
+
   // Load enabled sources once
   useEffect(() => {
     fetchScrapeSettings()
       .then(d => { if (d.success) setSources(d.settings.sites.filter(s => s.enabled)) })
+      .catch(() => {})
+  }, [])
+
+  // Load already-imported articles to filter duplicates
+  useEffect(() => {
+    fetchAllArticles({ limit: 200 })
+      .then(d => {
+        const urls = new Set()
+        const titles = new Set()
+        ;(d.articles || []).forEach(a => {
+          if (a.source_url) urls.add(a.source_url.trim().toLowerCase())
+          if (a.title)      titles.add(a.title.trim().toLowerCase())
+        })
+        setExistingUrls({ urls, titles })
+      })
       .catch(() => {})
   }, [])
 
@@ -90,22 +107,43 @@ export default function NewsScraperModal({ isOpen, onFill, onClose }) {
         headers: { Authorization: `Bearer ${token}` }
       }).then(r => r.json())
 
+      console.group('📰 NEXUS Import — raw scraped data')
+      console.log('API response:', res)
+      console.log('meta:', res.meta)
+      console.log('content_html length:', res.meta?.content_html?.length ?? 0)
+      console.log('cover_image:', res.meta?.cover_image)
+      console.log('source article:', article)
+      console.groupEnd()
+
       const meta      = res.success ? res.meta : {}
       const activeSrc = sources.find(s => s.id === sourceId)
       const title     = meta.title       || article.title   || ''
       const excerpt   = meta.excerpt     || article.excerpt || ''
-      const image     = meta.cover_image || article.thumb   || ''
+      const image     = meta.cover_image || meta.og_image   || article.thumb || ''
       const author    = meta.author      || article.author  || ''
       const cat       = activeSrc?.category || meta.category || article.category || ''
       const tags      = [...new Set([...(meta.tags || []), ...(article.tags || [])])].slice(0, 6)
       const seoTitle  = title.length > 60   ? title.slice(0, 57).replace(/\s+\S*$/, '')   + '...' : title
       const seoDesc   = excerpt.length > 155 ? excerpt.slice(0, 152).replace(/\s+\S*$/, '') + '...' : excerpt
-      const content   = meta.content_html
-        || `<p>${excerpt}</p>\n<hr/>\n<p><small>📰 Source: <a href="${article.url}" target="_blank">${article.source || ''}</a></small></p>`
+
+      // Use full scraped HTML (includes inline images & embeds); fall back to excerpt only if empty
+      let contentHtml = meta.content_html || ''
+      if (!contentHtml || contentHtml.trim().length < 100) {
+        contentHtml = [
+          image ? `<figure><img src="${image}" alt="${title}" style="width:100%;border-radius:8px;margin-bottom:1rem"/></figure>` : '',
+          excerpt ? `<p>${excerpt}</p>` : '',
+          '<hr/>',
+          `<p><small>📰 Source: <a href="${article.url}" target="_blank" rel="noopener">${article.source || new URL(article.url).hostname}</a></small></p>`,
+        ].filter(Boolean).join('\n')
+      }
+
+      console.log('✅ Final content length:', contentHtml.length, '| cover_image:', image)
 
       onFill({ title, excerpt, cover_image: image, author, category: cat, tags,
-               seo_title: seoTitle, seo_description: seoDesc, content })
-    } catch {
+               seo_title: seoTitle, seo_description: seoDesc, content: contentHtml,
+               source_url: article.url })
+    } catch (err) {
+      console.error('❌ Import fetch error:', err)
       const activeSrc = sources.find(s => s.id === sourceId)
       onFill({
         title:           article.title    || '',
@@ -116,7 +154,8 @@ export default function NewsScraperModal({ isOpen, onFill, onClose }) {
         tags:            article.tags     || [],
         seo_title:       (article.title   || '').slice(0, 60),
         seo_description: (article.excerpt || '').slice(0, 155),
-        content: `<p>${article.excerpt}</p>\n<hr/>\n<p><small>📰 Source: <a href="${article.url}" target="_blank">${article.source}</a></small></p>`,
+        content: `<p>${article.excerpt || ''}</p>\n<hr/>\n<p><small>📰 Source: <a href="${article.url}" target="_blank" rel="noopener">${article.source || article.url}</a></small></p>`,
+        source_url: article.url,
       })
     } finally {
       setFetching(null)
@@ -125,6 +164,15 @@ export default function NewsScraperModal({ isOpen, onFill, onClose }) {
   }
 
   const isFiltered = search || category !== 'All' || sourceId !== 'all'
+
+  const isAlreadyImported = (a) => {
+    if (!existingUrls.urls && !existingUrls.titles) return false
+    const urlMatch   = a.url   && existingUrls.urls?.has(a.url.trim().toLowerCase())
+    const titleMatch = a.title && existingUrls.titles?.has(a.title.trim().toLowerCase())
+    return urlMatch || titleMatch
+  }
+
+  const filteredArticles = articles.filter(a => !isAlreadyImported(a))
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 px-4"
@@ -137,7 +185,7 @@ export default function NewsScraperModal({ isOpen, onFill, onClose }) {
           <div>
             <h2 className="text-lg font-bold">📰 Live News Feed</h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              {articles.length} articles · click any to import with full content, images & author
+              {filteredArticles.length} articles available · {articles.length - filteredArticles.length} already imported
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
@@ -210,7 +258,7 @@ export default function NewsScraperModal({ isOpen, onFill, onClose }) {
             </div>
           ) : (
             <div className="space-y-2">
-              {articles.map((a, i) => (
+              {filteredArticles.map((a, i) => (
                 <button key={i} onClick={() => handlePick(a)}
                   disabled={!!fetching}
                   className="w-full text-left p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all group disabled:opacity-50">

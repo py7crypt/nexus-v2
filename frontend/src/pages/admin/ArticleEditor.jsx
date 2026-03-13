@@ -165,6 +165,12 @@ export default function ArticleEditor() {
   }
 
   const handleNewsFill = (a) => {
+    console.group('📝 NEXUS — filling editor from import')
+    console.log('Received data:', a)
+    console.log('content length:', a.content?.length ?? 0)
+    console.log('cover_image:', a.cover_image)
+    console.groupEnd()
+
     setForm(f => ({
       ...f,
       title:           a.title           || f.title,
