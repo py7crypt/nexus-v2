@@ -22,15 +22,6 @@ export default function CategoryPage() {
 
   return (
     <div className="nexus-container py-8">
-      {/* Category header */}
-      <div className="rounded-xl p-7 mb-7 text-white relative overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)` }}>
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 70% 50%, white 0%, transparent 60%)' }}/>
-        <div className="relative z-10">
-          <h1 className="font-display text-3xl font-black mb-1">{category}</h1>
-          <p className="text-white/70 text-sm">{data?.total || 0} articles · Updated daily</p>
-        </div>
-      </div>
 
       {/* Two-column layout matching HomePage */}
       <div className="grid lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_320px] gap-8">

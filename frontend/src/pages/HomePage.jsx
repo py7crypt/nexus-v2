@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { fetchArticles } from '../api'
 import { LikeButton } from '../components/shared'
 import RightSidebar from '../components/RightSidebar'
-import { catColor, catIcon, timeAgo, formatDate, getCategories } from '../utils'
+import { catColor, catIcon, timeAgo, getCategories } from '../utils'
 
 // ── Placeholder articles ──────────────────────────────────────────────────────
 const PLACEHOLDER = [
@@ -17,66 +17,140 @@ const PLACEHOLDER = [
   { id:'p6', title:'Quantum Computing Achieves New Milestone', category:'Science', author:'Dr. Sarah Kim', cover_image:'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&q=80', excerpt:'Researchers demonstrate error-corrected quantum computation at unprecedented scale.', created_at: new Date().toISOString() },
 ]
 
-// ── Article card components ───────────────────────────────────────────────────
-function HeroCard({ article }) {
-  if (!article) return null
+// ── Hero Slider ───────────────────────────────────────────────────────────────
+function HeroSlider({ articles }) {
+  const [current, setCurrent] = useState(0)
+  const [paused,  setPaused]  = useState(false)
+  const [animDir, setAnimDir] = useState('next') // 'next' | 'prev'
+  const items = articles.slice(0, 6)
+  const total  = items.length
+
+  // Auto-advance every 5s unless paused
+  useEffect(() => {
+    if (paused || total < 2) return
+    const t = setInterval(() => {
+      setAnimDir('next')
+      setCurrent(c => (c + 1) % total)
+    }, 5000)
+    return () => clearInterval(t)
+  }, [paused, total])
+
+  const go = (idx, dir = 'next') => {
+    setAnimDir(dir)
+    setCurrent((idx + total) % total)
+  }
+  const prev = () => go(current - 1, 'prev')
+  const next = () => go(current + 1, 'next')
+
+  if (!items.length) return null
+  const a = items[current]
+
   return (
-    <Link to={`/article/${article.id}`} className="nexus-hero-card group block relative overflow-hidden rounded-2xl">
-      <div className="absolute inset-0">
-        {article.cover_image
-          ? <img src={article.cover_image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/>
-          : <div className="w-full h-full bg-gradient-to-br from-blue-900 to-slate-900"/>
-        }
-        <div className="absolute inset-0 nexus-hero-overlay"/>
-      </div>
-      <div className="relative h-full flex flex-col justify-end p-6 lg:p-8">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="nexus-cat-badge" style={{ background: catColor(article.category) }}>
-            {catIcon(article.category)} {article.category}
-          </span>
+    <div
+      className="hero-slider"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      {/* Slides */}
+      {items.map((slide, i) => (
+        <div
+          key={slide.id}
+          className={`hero-slide ${i === current ? 'active' : ''}`}
+          aria-hidden={i !== current}
+        >
+          {/* Background image */}
+          {slide.cover_image
+            ? <img src={slide.cover_image} alt="" className="hero-slide-img"/>
+            : <div className="hero-slide-img" style={{ background: 'linear-gradient(135deg, #0b1120, #1E73FF33)' }}/>
+          }
+          {/* Gradient overlay */}
+          <div className="hero-slide-overlay"/>
+
+          {/* Content */}
+          <div className="hero-slide-content">
+            <div className="hero-slide-inner">
+              <span className="nexus-cat-badge mb-3 inline-block" style={{ background: catColor(slide.category) }}>
+                {catIcon(slide.category)} {slide.category}
+              </span>
+              <Link to={`/article/${slide.id}`} className="block group">
+                <h1 className="hero-slide-title group-hover:text-blue-300 transition-colors">
+                  {slide.title}
+                </h1>
+              </Link>
+              {slide.excerpt && (
+                <p className="hero-slide-excerpt">
+                  {slide.excerpt.replace(/<[^>]*>/g, '').slice(0, 140)}…
+                </p>
+              )}
+              <div className="hero-slide-meta">
+                {slide.author && <span>✍️ {slide.author}</span>}
+                <span className="opacity-40">·</span>
+                <span>{timeAgo(slide.created_at)}</span>
+                <Link to={`/article/${slide.id}`} className="hero-read-btn">
+                  Read More →
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
-        <h1 className="text-2xl lg:text-3xl xl:text-4xl font-black text-white leading-tight mb-3 group-hover:text-blue-200 transition-colors">
-          {article.title}
-        </h1>
-        {article.excerpt && (
-          <p className="text-sm text-white/75 line-clamp-2 mb-4 max-w-2xl">
-            {article.excerpt.replace(/<[^>]*>/g,'')}
-          </p>
-        )}
-        <div className="flex items-center gap-3 text-xs text-white/60">
-          {article.author && <span className="font-semibold text-white/80">✍️ {article.author}</span>}
-          <span>·</span>
-          <span>{timeAgo(article.created_at)}</span>
-          <div className="ml-auto"><LikeButton articleId={article.id}/></div>
+      ))}
+
+      {/* Prev / Next arrows */}
+      {total > 1 && (
+        <>
+          <button className="hero-arrow hero-arrow-prev" onClick={prev} aria-label="Previous">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button className="hero-arrow hero-arrow-next" onClick={next} aria-label="Next">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </>
+      )}
+
+      {/* Dot indicators */}
+      {total > 1 && (
+        <div className="hero-dots">
+          {items.map((_, i) => (
+            <button
+              key={i}
+              className={`hero-dot ${i === current ? 'active' : ''}`}
+              onClick={() => go(i, i > current ? 'next' : 'prev')}
+              aria-label={`Slide ${i + 1}`}
+            />
+          ))}
         </div>
+      )}
+
+      {/* Progress bar */}
+      {!paused && total > 1 && (
+        <div className="hero-progress" key={current}>
+          <div className="hero-progress-bar"/>
+        </div>
+      )}
+
+      {/* Thumbnail strip */}
+      <div className="hero-thumbs">
+        {items.map((slide, i) => (
+          <button
+            key={slide.id}
+            className={`hero-thumb ${i === current ? 'active' : ''}`}
+            onClick={() => go(i, i > current ? 'next' : 'prev')}
+          >
+            {slide.cover_image
+              ? <img src={slide.cover_image} alt="" className="w-full h-full object-cover"/>
+              : <div className="w-full h-full" style={{ background: catColor(slide.category) + '44' }}/>
+            }
+            <div className="hero-thumb-overlay">
+              <span className="hero-thumb-cat" style={{ color: catColor(slide.category) }}>{slide.category}</span>
+              <span className="hero-thumb-title">{slide.title}</span>
+            </div>
+            {i === current && <div className="hero-thumb-active-bar"/>}
+          </button>
+        ))}
       </div>
-    </Link>
+    </div>
   )
 }
-
-function SecondaryCard({ article }) {
-  if (!article) return null
-  return (
-    <Link to={`/article/${article.id}`} className="nexus-secondary-card group flex gap-3">
-      <div className="w-20 h-16 rounded-xl overflow-hidden flex-shrink-0">
-        {article.cover_image
-          ? <img src={article.cover_image} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
-          : <div className="w-full h-full nexus-img-placeholder"/>
-        }
-      </div>
-      <div className="flex-1 min-w-0">
-        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: catColor(article.category) }}>
-          {article.category}
-        </span>
-        <h4 className="text-xs font-semibold leading-snug line-clamp-2 mt-0.5 text-white/90 group-hover:text-blue-300 transition-colors">
-          {article.title}
-        </h4>
-        <span className="text-[10px] text-white/40 mt-1 block">{timeAgo(article.created_at)}</span>
-      </div>
-    </Link>
-  )
-}
-
 function GridCard({ article, variant = 'default' }) {
   if (!article) return null
   const isLarge = variant === 'large'
@@ -138,25 +212,6 @@ function TrendingItem({ article, rank }) {
   )
 }
 
-function CategorySection({ cat, articles }) {
-  const catArts = articles.filter(a => a.category === cat.name)
-  if (!catArts.length) return null
-  return (
-    <div className="nexus-category-section">
-      <div className="nexus-section-header">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: cat.color }}/>
-          <h2 className="nexus-section-title">{cat.icon} {cat.name}</h2>
-        </div>
-        <Link to={`/category/${cat.name.toLowerCase()}`} className="nexus-view-all">View All →</Link>
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 p-2">
-        {catArts.slice(0, 3).map(a => <GridCard key={a.id} article={a}/>)}
-      </div>
-    </div>
-  )
-}
-
 // ── Main HomePage ─────────────────────────────────────────────────────────────
 export default function HomePage() {
   const [cats, setCats] = useState(getCategories())
@@ -172,8 +227,6 @@ export default function HomePage() {
   const { data, isLoading } = useQuery({ queryKey: ['articles','home'], queryFn: () => fetchArticles({ limit: 30 }) })
   const articles = data?.articles?.length ? data.articles : PLACEHOLDER
 
-  const hero      = articles[0]
-  const secondary = articles.slice(1, 5)
   const trending  = articles.slice(0, 8)
   const latest    = articles.slice(0, 6)
 
@@ -181,28 +234,9 @@ export default function HomePage() {
     <div className="nexus-home">
       <div className="nexus-container py-6">
 
-        {/* ── HERO SECTION ─────────────────────────────────────────────── */}
+        {/* ── HERO SLIDER ──────────────────────────────────────────────── */}
         <section className="mb-8">
-
-          {/* Left: big hero */}
-          <div className="grid grid-rows-[minmax(380px,480px)_auto] gap-3">
-            <HeroCard article={hero}/>
-            <div className="grid grid-cols-2 gap-3">
-              {secondary.slice(0, 2).map(a => (
-                <Link key={a.id} to={`/article/${a.id}`} className="nexus-mini-hero group relative overflow-hidden rounded-xl">
-                  <div className="absolute inset-0">
-                    {a.cover_image && <img src={a.cover_image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"/>
-                  </div>
-                  <div className="relative p-4 h-full flex flex-col justify-end">
-                    <span className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: catColor(a.category) }}>{a.category}</span>
-                    <h4 className="text-xs font-bold text-white line-clamp-2 group-hover:text-blue-300 transition-colors">{a.title}</h4>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
+          <HeroSlider articles={articles}/>
         </section>
 
         {/* ── LATEST + RIGHT SIDEBAR ──────────────────────────────────── */}
@@ -220,11 +254,6 @@ export default function HomePage() {
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-10">
               {latest.map((a, i) => <GridCard key={a.id} article={a} variant={i === 0 ? 'large' : 'default'}/>)}
             </div>
-
-            {/* Category sections */}
-            {cats.map(cat => (
-              <CategorySection key={cat.name} cat={cat} articles={articles}/>
-            ))}
           </div>
 
           <RightSidebar variant="home"/>
